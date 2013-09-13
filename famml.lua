@@ -402,17 +402,20 @@ local function main()
 			if arg[i] == "-m" then musicmode = true end
 			if arg[i] == "-h" then help() return end
 			if arg[i] == "-o" then
-				if arg[1] == arg[i+1] then
-					print("Cannot read from and write to the same file.")
+				if i == #arg then
+					io.stderr:write("Output file expected after -o\n")
+					return
+				elseif arg[1] == arg[i+1] then
+					io.stderr:write("Cannot read from and write to the same file.\n")
 					return
 				end
 			end
 		until i >= #arg
 		if pipemode and intermode then
-			print("You want pipe mode AND interactive mode? But... why?")
+			io.stderr:write("You want pipe mode AND interactive mode? But... why?\n")
 			return
 		elseif soundmode and musicmode then
-			print("Because FamiTone's sfx and music formats differ, please select one or the other.")
+			io.stderr:write("Because FamiTone's sfx and music formats differ, please select one or the other.\n")
 			return
 		end
 	end
@@ -446,7 +449,10 @@ local function main()
 		elseif arg[i] == "-o" then
 			if arg[i+1] then
 				output = io.open(arg[3])
-				assert(o, "Could not open output file '"..arg[3].."'")
+				if output == nil then
+					io.stderr:write("Could not open output file '"..arg[3].."'")
+					return
+				end
 			end
 		elseif arg[i] == "-s" then
 			audiotype = "sound"
@@ -457,8 +463,11 @@ local function main()
 		else
 			-- All other options are checked. If this far, then arg[1] is input file.
 			if i == 1 then
-				f = io.open(arg[1])
-				assert(f, "Could not open input file '"..arg[1].."Expected input file as first argument.'\n")
+				local f = io.open(arg[1])
+				if f == nil then
+					io.stderr:write("Could not open input file '"..arg[1].."'. Expected input file as first argument.\n")
+					return
+				end
 				input = f:read("*all")
 				f:close()
 			end
