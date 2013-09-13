@@ -238,51 +238,51 @@
 -- For reference, the following is copied from the level music for Shiru's sample NES game, Chase.
 -- mus_level_module:
 -- 	.word @chn0,@chn1,@chn2,@chn3,@chn4,music_instruments
--- -- 	.byte $03
+-- 	.byte $03
 -- 
 -- @chn0:
 -- @chn0_0:
--- -- 	.byte $47,$18,$80,$18,$80,$1a,$8a
+-- 	.byte $47,$18,$80,$18,$80,$1a,$8a
 -- @chn0_loop:
 -- @chn0_1:
--- -- 	.byte $8f
--- -- 	.byte $fe
+-- 	.byte $8f
+-- 	.byte $fe
 -- 	.word @chn0_loop
 -- 
 -- @chn1:
 -- @chn1_0:
--- -- 	.byte $48,$18,$80,$18,$80,$1a,$8a
+-- 	.byte $48,$18,$80,$18,$80,$1a,$8a
 -- @chn1_loop:
 -- @chn1_1:
--- -- 	.byte $8f
--- -- 	.byte $fe
+-- 	.byte $8f
+-- 	.byte $fe
 -- 	.word @chn1_loop
 -- 
 -- @chn2:
 -- @chn2_0:
--- -- 	.byte $41,$18,$80,$18,$80,$49,$18,$41,$1a,$81,$3f,$86
+-- 	.byte $41,$18,$80,$18,$80,$49,$18,$41,$1a,$81,$3f,$86
 -- @chn2_loop:
 -- @chn2_1:
--- -- 	.byte $8f
--- -- 	.byte $fe
+-- 	.byte $8f
+-- 	.byte $fe
 -- 	.word @chn2_loop
 -- 
 -- @chn3:
 -- @chn3_0:
--- -- 	.byte $46,$0f,$80,$0f,$80,$49,$0b,$80,$42,$0f,$88
+-- 	.byte $46,$0f,$80,$0f,$80,$49,$0b,$80,$42,$0f,$88
 -- @chn3_loop:
 -- @chn3_1:
--- -- 	.byte $8f
--- -- 	.byte $fe
+-- 	.byte $8f
+-- 	.byte $fe
 -- 	.word @chn3_loop
 -- 
 -- @chn4:
 -- @chn4_0:
--- -- 	.byte $8f
+-- 	.byte $8f
 -- @chn4_loop:
 -- @chn4_1:
--- -- 	.byte $8f
--- -- 	.byte $fe
+-- 	.byte $8f
+-- 	.byte $fe
 -- 	.word @chn4_loop
 -----------------------------------------------------------------------------
 
@@ -357,9 +357,9 @@ local ca65_asm = {byte="\t.byte ", word="\t.word "}
 local function translate(input, output, asm)
 	--- NOTE: Need code to check for a header, to differentiate between sound and music
 
-	while true do
+	--while true do
 		-- NOTE: Add code to loop through input
-	end
+	--end
 end
 
 
@@ -385,20 +385,22 @@ local function main()
 	local output = io.stdout
 	local asm = ca65_asm
 
-	i = 0
-	pipemode = false
-	intermode = false
-	repeat
-		i = i + 1
-		if arg[i] == "-i" then intermode = true end
-		if arg[i] == "-p" then pipemode = true end
-	until i >= #arg
-	if pipemode and intermode then
-		print("You want pipe mode AND interactive mode? But... why?")
-		return
+	do
+		local i = 0
+		local pipemode = false
+		local intermode = false
+		repeat
+			i = i + 1
+			if arg[i] == "-i" then intermode = true end
+			if arg[i] == "-p" then pipemode = true end
+		until i >= #arg
+		if pipemode and intermode then
+			print("You want pipe mode AND interactive mode? But... why?")
+			return
+		end
 	end
 
-	i = 0
+	local i = 0
 	repeat
 		i = i + 1
 		if arg[i] == "-i" then
@@ -410,7 +412,7 @@ local function main()
 				s = io.read("*line")
 				if not s then
 					print()
-					return
+					break
 				end
 				buffer = buffer..s
 			end
@@ -420,7 +422,7 @@ local function main()
 			buffer = ""
 			while true do
 				s = io.read("*line")
-				if not s then return end
+				if not s then break end
 				buffer = buffer..s
 			end
 			input = buffer
