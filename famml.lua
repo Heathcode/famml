@@ -356,7 +356,7 @@ local ca65_asm = {byte="\t.byte ", word="\t.word "}
 
 local function translate(input, output, asm, audiotype)
 	if audiotype == "music" then
-	elseif audiotype == "music" then
+	elseif audiotype == "sound" then
 	end
 end
 
