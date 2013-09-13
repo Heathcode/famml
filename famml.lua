@@ -354,12 +354,10 @@ local ca65_asm = {byte="\t.byte ", word="\t.word "}
 
 
 
-local function translate(input, output, asm)
-	--- NOTE: Need code to check for a header, to differentiate between sound and music
-
-	--while true do
-		-- NOTE: Add code to loop through input
-	--end
+local function translate(input, output, asm, audiotype)
+	if audiotype == "music" then
+	elseif audiotype == "music then
+	end
 end
 
 
@@ -384,18 +382,26 @@ local function main()
 	local input = ""
 	local output = io.stdout
 	local asm = ca65_asm
+	local audiotype = "music"
 
 	do
 		local i = 0
 		local pipemode = false
 		local intermode = false
+		local soundmode = false
+		local musicmode = false
 		repeat
 			i = i + 1
 			if arg[i] == "-i" then intermode = true end
 			if arg[i] == "-p" then pipemode = true end
+			if arg[i] == "-s" then soundmode = true end
+			if arg[i] == "-m" then musicmode = true end
 		until i >= #arg
 		if pipemode and intermode then
 			print("You want pipe mode AND interactive mode? But... why?")
+			return
+		elseif soundmode and musicmode then
+			print("Because FamiTone's sfx and music formats differ, please select one or the other.")
 			return
 		end
 	end
@@ -431,6 +437,10 @@ local function main()
 				output = io.open(arg[3])
 				assert(o, "Could not open output file '"..arg[3].."'")
 			end
+		elseif arg[i] == "-s" then
+			audiotype = "sound"
+		elseif arg[i] == "-m" then
+			audiotype = "music"
 		elseif arg[i] == "-a" then
 			--- NOTE: Add code to change the assembler output
 		else
@@ -447,7 +457,7 @@ local function main()
 		end
 	until i >= #arg
 
-	translate(input, output, asm)
+	translate(input, output, asm, audiotype)
 	output:close()
 end
 
