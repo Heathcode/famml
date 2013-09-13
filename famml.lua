@@ -374,6 +374,10 @@ local function help()
 	print("   -h  See this help screen")
 	print("   -o  Redirect output to a file, as opposed to standard output")
 	print("   -p  Accept input from a pipe")
+	print()
+	print("   -a  Change assembly output for use with another assembler")
+	print("   -s  Output sfx")
+	print("   -m  Output music (default)")
 end
 
 
@@ -396,6 +400,13 @@ local function main()
 			if arg[i] == "-p" then pipemode = true end
 			if arg[i] == "-s" then soundmode = true end
 			if arg[i] == "-m" then musicmode = true end
+			if arg[i] == "-h" then help() return end
+			if arg[i] == "-o" then
+				if arg[1] == arg[i+1] then
+					print("Cannot read from and write to the same file.")
+					return
+				end
+			end
 		until i >= #arg
 		if pipemode and intermode then
 			print("You want pipe mode AND interactive mode? But... why?")
@@ -412,7 +423,7 @@ local function main()
 		if arg[i] == "-i" then
 			-- Interactive mode!
 			intro()
-			buffer = ""
+			local buffer = ""
 			while true do
 				io.write("> ")
 				s = io.read("*line")
@@ -425,7 +436,7 @@ local function main()
 			input = buffer
 		elseif arg[i] == "-p" then
 			-- Pipe mode!
-			buffer = ""
+			local buffer = ""
 			while true do
 				s = io.read("*line")
 				if not s then break end
@@ -444,13 +455,10 @@ local function main()
 		elseif arg[i] == "-a" then
 			--- NOTE: Add code to change the assembler output
 		else
+			-- All other options are checked. If this far, then arg[1] is input file.
 			if i == 1 then
-				if arg[i] == "-h" then
-					help()
-					return
-				end
 				f = io.open(arg[1])
-				assert(f, "Could not open input file '"..arg[1].."'\n")
+				assert(f, "Could not open input file '"..arg[1].."Expected input file as first argument.'\n")
 				input = f:read("*all")
 				f:close()
 			end
