@@ -350,18 +350,51 @@
 
 
 
-local ca65_asm = {byte="\t.byte ", word="\t.word "}
+-----------------------------------------------------------------------------
+-- Assembler settings table
+-- An assembler settings table has the strings to output for a specific assembler
+-----------------------------------------------------------------------------
+local asm_template = {
+	byte="\t.byte ",
+	word="\t.word ",
+	label=function(name) return name..":" end,
+	clabel=function(name) return "@"..name..":" end,
+	hexval=function(num) return "$"..tostring(tonumber(num,16)) end,
+}
 
 
 
+local asm_ca65 = template_asm
+
+
+
+-----------------------------------------------------------------------------
+-- translate(input, output, asm, audiotype)
+-- translate() takes a string as input, a file as output, an assembler settings table,
+-- and a string which is either "sound" or "music".
+-- translate() then writes to output, and returns any error as a string.
+-----------------------------------------------------------------------------
 local function translate(input, output, asm, audiotype)
+	--local bytes = {{asm.label("label"), asm.byte, asm.hexval(160)}}
+	local bytes = {}
 	if audiotype == "music" then
 	elseif audiotype == "sound" then
+		if #bytes > 255 then
+			return "FamiTone sfx are up to 255 bytes. This sound is too big.\n"
+		else
+			for i,v in ipairs(bytes) do
+				output:write(v[1]..v[2]..v[3].."\n")
+			end
+		end
 	end
 end
 
 
 
+-----------------------------------------------------------------------------
+-- intro() and help()
+-- Just show some friendly information about the program. :)
+-----------------------------------------------------------------------------
 local function intro()
 	print("Famml! - Convert MML to assembly compatible with NES and FamiTone\n")
 end
@@ -375,19 +408,28 @@ local function help()
 	print("   -o  Redirect output to a file, as opposed to standard output")
 	print("   -p  Accept input from a pipe")
 	print()
-	print("   -a  Change assembly output for use with another assembler")
+	print("   -a  Load assembler settings from a file (default is ca65)")
 	print("   -s  Output sfx")
 	print("   -m  Output music (default)")
 end
 
 
-
-local function main()
+-----------------------------------------------------------------------------
+-- cli()
+-- cli() handles the command-line interface, with all the parameters to be used.
+-----------------------------------------------------------------------------
+local function cli()
+	-----------------------------------------------------------------------------
+	-- Default options
+	-----------------------------------------------------------------------------
 	local input = ""
 	local output = io.stdout
-	local asm = ca65_asm
+	local asm = asm_ca65
 	local audiotype = "music"
 
+	-----------------------------------------------------------------------------
+	-- First, check parameters for errors
+	-----------------------------------------------------------------------------
 	do
 		local i = 0
 		local pipemode = false
@@ -410,6 +452,12 @@ local function main()
 					return
 				end
 			end
+			if arg[i] == "-a" then
+				if i == #arg then
+					io.stderr:write("Assembler settings file expected after -a\n")
+					return
+				end
+			end
 		until i >= #arg
 		if pipemode and intermode then
 			io.stderr:write("You want pipe mode AND interactive mode? But... why?\n")
@@ -420,68 +468,88 @@ local function main()
 		end
 	end
 
-	local i = 0
-	repeat
-		i = i + 1
-		if arg[i] == "-i" then
-			-- Interactive mode!
-			intro()
-			local buffer = ""
-			while true do
-				io.write("> ")
-				s = io.read("*line")
-				if not s then
-					print()
-					break
+	-----------------------------------------------------------------------------
+	-- Process the parameters, including pipe and interactive mode
+	-----------------------------------------------------------------------------
+	do
+		local i = 0
+		repeat
+			i = i + 1
+			if arg[i] == "-i" then
+				-- Interactive mode!
+				intro()
+				local buffer = ""
+				while true do
+					io.write("> ")
+					s = io.read("*line")
+					if not s then
+						print()
+						break
+					end
+					buffer = buffer..s
 				end
-				buffer = buffer..s
-			end
-			input = buffer
-		elseif arg[i] == "-p" then
-			-- Pipe mode!
-			local buffer = ""
-			while true do
-				s = io.read("*line")
-				if not s then break end
-				buffer = buffer..s
-			end
-			input = buffer
-		elseif arg[i] == "-o" then
-			if arg[i+1] then
-				output = io.open(arg[3])
-				if output == nil then
-					io.stderr:write("Could not open output file '"..arg[3].."'")
-					return
+				input = buffer
+			elseif arg[i] == "-p" then
+				-- Pipe mode!
+				local buffer = ""
+				while true do
+					s = io.read("*line")
+					if not s then break end
+					buffer = buffer..s
+				end
+				input = buffer
+			elseif arg[i] == "-o" then
+				if arg[i+1] then
+					output = io.open(arg[i+1])
+					if output == nil then
+						io.stderr:write("Could not open output file '"..arg[i+1].."'\n")
+						return
+					end
+				end
+			elseif arg[i] == "-s" then
+				audiotype = "sound"
+			elseif arg[i] == "-m" then
+				audiotype = "music"
+			elseif arg[i] == "-a" then
+				if arg[i+1] then
+					asm = dofile(arg[i+1])
+					if not asm then
+						io.stderr:write("Could not open assembler settings file '"..arg[i+1].."'\n")
+						return
+					end
+				end
+			else
+				-- All other options are checked. If this far, then arg[1] is input file.
+				if i == 1 then
+					local f = io.open(arg[1])
+					if f == nil then
+						io.stderr:write("Could not open input file '"..arg[1].."'. Expected input file as first argument.\n")
+						return
+					end
+					input = f:read("*all")
+					f:close()
 				end
 			end
-		elseif arg[i] == "-s" then
-			audiotype = "sound"
-		elseif arg[i] == "-m" then
-			audiotype = "music"
-		elseif arg[i] == "-a" then
-			--- NOTE: Add code to change the assembler output
-		else
-			-- All other options are checked. If this far, then arg[1] is input file.
-			if i == 1 then
-				local f = io.open(arg[1])
-				if f == nil then
-					io.stderr:write("Could not open input file '"..arg[1].."'. Expected input file as first argument.\n")
-					return
-				end
-				input = f:read("*all")
-				f:close()
-			end
-		end
-	until i >= #arg
+		until i >= #arg
+	end
 
-	translate(input, output, asm, audiotype)
-	output:close()
+	-----------------------------------------------------------------------------
+	-- We made it. Now translate().
+	-----------------------------------------------------------------------------
+	local e = translate(input, output, asm, audiotype)
+	if not output == io.stdout then output:close() end
+	if e then io.stderr:write(e) end
 end
 
 
 
-if #arg <= 0 then
+-----------------------------------------------------------------------------
+-- If this script is loaded from the interpreter or without parameters, it should just help().
+-----------------------------------------------------------------------------
+if arg == nil then
+	help()
+elseif #arg <= 0 then
 	help()
 else
-	main()
+	cli()
 end
