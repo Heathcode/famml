@@ -375,10 +375,6 @@ local asm_ca65 = template_asm
 -- translate() then writes to output, and returns its MML context and any error as a string.
 -----------------------------------------------------------------------------
 local function translate(mmlcontext, input, output, asm, audiotype)
-	--local output_bytes = {{asm.label("label"), asm.byte, asm.hexval(160)}}
-	local output_bytes = {}
-	if mmlcontext.title then print(mmlcontext.title) end
-
 	-----------------------------------------------------------------------------
 	-- doline(line, mmlcontext)
 	-- Parse a line
@@ -386,7 +382,49 @@ local function translate(mmlcontext, input, output, asm, audiotype)
 	local function doline(line, mmlcontext)
 		local context = mmlcontext
 
-		
+		-----------------------------------------------------------------------------
+		-- Capture the title
+		-----------------------------------------------------------------------------
+		do
+			for title in string.gmatch(line, "#TITLE%s(.)") do
+				if context.title == nil then
+					context.title = title
+				else
+					return context, "One title only, please."
+				end
+			end
+		end
+
+		-----------------------------------------------------------------------------
+		-- Capture the composer
+		-----------------------------------------------------------------------------
+		do
+			for composer in string.gmatch(line, "#COMPOSER%s(.)") do
+				if context.composer == nil then
+					context.composer = composer
+				else
+					return context, "Who composed this again?"
+				end
+			end
+		end
+
+		-----------------------------------------------------------------------------
+		-- Capture envelopes
+		-----------------------------------------------------------------------------
+		do
+			for k,v in string.gmatch(line, "(@v%d)%s=%s(%b{})") do
+				if not env == nil then
+					if context.envelopes == nil then
+						context.envelopes = {}
+						context.envelopes[k] = v
+					elseif context.envelopes[k] == nil then
+						context.envelopes[k] = v
+					else
+						return context, "Envelopes must be constant."
+					end
+				end
+			end
+		end
 
 		return context
 	end
@@ -396,9 +434,17 @@ local function translate(mmlcontext, input, output, asm, audiotype)
 	-----------------------------------------------------------------------------
 	do
 		for line in string.gmatch(input, "(.+)\n") do
-			mmlcontext, err = doline(line, mmlcontext)
-			if err then return mmlcontext, err end
+			context, err = doline(line, mmlcontext)
+			if err then return context, err
+			else mmlcontext = context end
 		end
+	end
+
+	-----------------------------------------------------------------------------
+	-- Translate mmlcontext to assembly
+	-----------------------------------------------------------------------------
+	do
+		if mmlcontext.bytes == nil then mmlcontext.bytes = {} end
 	end
 
 	return mmlcontext
