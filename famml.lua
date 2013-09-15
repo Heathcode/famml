@@ -369,19 +369,17 @@ local asm_ca65 = template_asm
 
 
 -----------------------------------------------------------------------------
--- translate(input, output, asm, audiotype)
--- translate() takes a string as input, a file as output, an assembler settings table,
--- and a string which is either "sound" or "music".
+-- translate(context input, output, asm, audiotype)
+-- translate() takes an MML context table, a string as input, a file as output,
+-- an assembler settings table, and a string which is either "sound" or "music".
 -- translate() then writes to output, and returns its MML context and any error as a string.
 -----------------------------------------------------------------------------
-local function translate(mmlcontext, input, output, asm, audiotype)
+local function translate(context, input, output, asm, audiotype)
 	-----------------------------------------------------------------------------
-	-- doline(line, mmlcontext)
+	-- doline(line, context)
 	-- Parse a line
 	-----------------------------------------------------------------------------
-	local function doline(line, mmlcontext)
-		local context = mmlcontext
-
+	local function doline(line, context)
 		-----------------------------------------------------------------------------
 		-- Capture the title
 		-----------------------------------------------------------------------------
@@ -403,7 +401,7 @@ local function translate(mmlcontext, input, output, asm, audiotype)
 				if context.composer == nil then
 					context.composer = composer
 				else
-					return context, "Who composed this again?"
+					return context, "To credit more than one composer, please put them all on one line."
 				end
 			end
 		end
@@ -412,13 +410,20 @@ local function translate(mmlcontext, input, output, asm, audiotype)
 		-- Capture envelopes
 		-----------------------------------------------------------------------------
 		do
-			for k,v in string.gmatch(line, "(@v%d)%s=%s(%b{})") do
-				if not env == nil then
+			local function getenvelarray(envstring)
+				n = {}
+				for i in string.gmatch(envstring, "(%d+)") do
+					table.insert(n, i)
+				end
+			end
+
+			for k,v in string.gmatch(line, "@(v%d)%s=%s(%b{})") do
+				if v then
 					if context.envelopes == nil then
 						context.envelopes = {}
-						context.envelopes[k] = v
+						context.envelopes[k] = getenvelarray(v)
 					elseif context.envelopes[k] == nil then
-						context.envelopes[k] = v
+						context.envelopes[k] = getenvelarray(v)
 					else
 						return context, "Envelopes must be constant."
 					end
@@ -434,37 +439,22 @@ local function translate(mmlcontext, input, output, asm, audiotype)
 	-----------------------------------------------------------------------------
 	do
 		for line in string.gmatch(input, "(.+)\n") do
-			context, err = doline(line, mmlcontext)
-			if err then return context, err
-			else mmlcontext = context end
+			context, err = doline(line, context)
+			if err then return context, err end
 		end
 	end
 
-	-----------------------------------------------------------------------------
-	-- Translate mmlcontext to assembly
-	-----------------------------------------------------------------------------
-	do
-		if mmlcontext.bytes == nil then mmlcontext.bytes = {} end
-	end
-
-	return mmlcontext
+	return context
 end
 
 
 
 -----------------------------------------------------------------------------
--- intro() and help()
+-- help()
 -- Just show some friendly information about the program. :)
 -----------------------------------------------------------------------------
-local function intro()
-	print("Famml! - Convert MML to assembly compatible with NES and FamiTone\n")
-end
-
-
-
 local function help()
-	intro()
-	print("   -i  Interactive mode")
+	print("Famml! - Convert MML to assembly compatible with NES and FamiTone\n")
 	print("   -h  See this help screen")
 	print("   -o  Redirect output to a file, as opposed to standard output")
 	print("   -p  Accept input from a pipe")
@@ -476,10 +466,10 @@ end
 
 
 -----------------------------------------------------------------------------
--- cli(mmlcontext)
+-- cli(context)
 -- cli() handles the command-line interface, with all the parameters to be used.
 -----------------------------------------------------------------------------
-local function cli(mmlcontext)
+local function cli(context)
 	-----------------------------------------------------------------------------
 	-- Default options
 	-----------------------------------------------------------------------------
@@ -487,12 +477,12 @@ local function cli(mmlcontext)
 	local output = io.stdout
 	local asm = asm_ca65
 	local audiotype = "music"
-	local loop = false
 
 	-----------------------------------------------------------------------------
-	-- First, check parameters for errors
+	-- checkparams(context)
+	-- checkparams validates the parameters in arg
 	-----------------------------------------------------------------------------
-	do
+	function checkparams(context)
 		local i = 0
 		local pipemode = false
 		local intermode = false
@@ -500,77 +490,45 @@ local function cli(mmlcontext)
 		local musicmode = false
 		repeat
 			i = i + 1
-			if arg[i] == "-i" then intermode = true end
 			if arg[i] == "-p" then pipemode = true end
 			if arg[i] == "-s" then soundmode = true end
 			if arg[i] == "-m" then musicmode = true end
 			if arg[i] == "-h" then help() return end
 			if arg[i] == "-o" then
 				if i == #arg then
-					io.stderr:write("Output file expected after -o\n")
-					return
+					return context, "Output file expected after -o\n"
 				elseif arg[1] == arg[i+1] then
-					io.stderr:write("Cannot read from and write to the same file.\n")
-					return
+					return context, "Cannot read from and write to the same file.\n"
 				end
 			end
 			if arg[i] == "-a" then
 				if i == #arg then
-					io.stderr:write("Assembler settings file expected after -a\n")
-					return
+					return context, "Assembler settings file expected after -a\n"
 				end
 			end
 		until i >= #arg
-		if pipemode and intermode then
-			io.stderr:write("You want pipe mode AND interactive mode? But... why?\n")
-			return
-		elseif soundmode and musicmode then
-			io.stderr:write("Because FamiTone's sfx and music formats differ, please select one or the other.\n")
-			return
+		if soundmode and musicmode then
+			return context, "Because FamiTone's sfx and music formats differ, please select one or the other.\n"
 		end
+
+		return context
 	end
 
 	-----------------------------------------------------------------------------
 	-- Process the parameters, including pipe and interactive mode
 	-----------------------------------------------------------------------------
-	do
+	function readinput(context)
 		local i = 0
 		repeat
 			i = i + 1
-			if arg[i] == "-i" then
-				-- Interactive mode!
-				loop = true
-				intro()
-				local buffer = ""
-				while true do
-					io.write("> ")
-					s = io.read("*line")
-					if not s then
-						print()
-						break
-					end
-					if string.lower(s) == "exit" or string.lower(s) == "quit" then
-						loop = false
-						break
-					end
-					buffer = buffer..s.."\n"
-				end
-				input = buffer
-			elseif arg[i] == "-p" then
+			if arg[i] == "-p" then
 				-- Pipe mode!
-				local buffer = ""
-				while true do
-					s = io.read("*line")
-					if not s then break end
-					buffer = buffer..s.."\n"
-				end
-				input = buffer
+				input = io.read("*all")
 			elseif arg[i] == "-o" then
 				if arg[i+1] then
 					output, err = io.open(arg[i+1], "a+")
 					if output == nil then
-						io.stderr:write("Could not open output file '"..arg[i+1].."'\n")
-						return
+						return context, "Could not open output file '"..arg[i+1].."'\n"
 					end
 				end
 			elseif arg[i] == "-s" then
@@ -580,33 +538,44 @@ local function cli(mmlcontext)
 			elseif arg[i] == "-a" then
 				if arg[i+1] then
 					asm = dofile(arg[i+1])
-					if not asm then
-						io.stderr:write("Could not open assembler settings file '"..arg[i+1].."'\n")
-						return
-					end
 				end
 			else
 				-- All other options are checked. If this far, then arg[1] is input file.
 				if i == 1 then
 					local f = io.open(arg[1])
 					if f == nil then
-						io.stderr:write("Could not open input file '"..arg[1].."'. Expected input file as first argument.\n")
-						return
+						return context, "Could not open input file '"..arg[1].."'. Expected input file as first argument.\n"
 					end
 					input = f:read("*all")
 					f:close()
 				end
 			end
 		until i >= #arg
+
+		return context
 	end
 
 	-----------------------------------------------------------------------------
-	-- We made it. Now translate().
+	-- Now to the meat of the function
 	-----------------------------------------------------------------------------
-	local context,err = translate(mmlcontext, input, output, asm, audiotype)
+	context,err = checkparams(context)
+	if err then
+		io.stderr:write(err.."\n")
+		return
+	end
+
+	context,err = readinput(context)
+	if err then
+		io.stderr:write(err.."\n")
+		return
+	end
+
+	context,err = translate(context, input, output, asm, audiotype)
 	if not output == io.stdout then output:close() end
-	if err then io.stderr:write(err.."\n") end
-	if loop then cli(context) end
+	if err then
+		io.stderr:write(err.."\n")
+		return
+	end
 end
 
 
@@ -619,5 +588,5 @@ if arg == nil then
 elseif #arg <= 0 then
 	help()
 else
-	cli({})
+	return cli({})
 end
