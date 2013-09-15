@@ -372,21 +372,36 @@ local asm_ca65 = template_asm
 -- translate(input, output, asm, audiotype)
 -- translate() takes a string as input, a file as output, an assembler settings table,
 -- and a string which is either "sound" or "music".
--- translate() then writes to output, and returns any error as a string.
+-- translate() then writes to output, and returns its MML context and any error as a string.
 -----------------------------------------------------------------------------
-local function translate(input, output, asm, audiotype)
-	--local bytes = {{asm.label("label"), asm.byte, asm.hexval(160)}}
-	local bytes = {}
-	if audiotype == "music" then
-	elseif audiotype == "sound" then
-		if #bytes > 255 then
-			return "FamiTone sfx are up to 255 bytes. This sound is too big.\n"
-		else
-			for i,v in ipairs(bytes) do
-				output:write(v[1]..v[2]..v[3].."\n")
-			end
+local function translate(mmlcontext, input, output, asm, audiotype)
+	--local output_bytes = {{asm.label("label"), asm.byte, asm.hexval(160)}}
+	local output_bytes = {}
+	if mmlcontext.title then print(mmlcontext.title) end
+
+	-----------------------------------------------------------------------------
+	-- doline(line, mmlcontext)
+	-- Parse a line
+	-----------------------------------------------------------------------------
+	local function doline(line, mmlcontext)
+		local context = mmlcontext
+
+		
+
+		return context
+	end
+
+	-----------------------------------------------------------------------------
+	-- Cycle through all the lines
+	-----------------------------------------------------------------------------
+	do
+		for line in string.gmatch(input, "(.+)\n") do
+			mmlcontext, err = doline(line, mmlcontext)
+			if err then return mmlcontext, err end
 		end
 	end
+
+	return mmlcontext
 end
 
 
@@ -415,10 +430,10 @@ end
 
 
 -----------------------------------------------------------------------------
--- cli()
+-- cli(mmlcontext)
 -- cli() handles the command-line interface, with all the parameters to be used.
 -----------------------------------------------------------------------------
-local function cli()
+local function cli(mmlcontext)
 	-----------------------------------------------------------------------------
 	-- Default options
 	-----------------------------------------------------------------------------
@@ -426,6 +441,7 @@ local function cli()
 	local output = io.stdout
 	local asm = asm_ca65
 	local audiotype = "music"
+	local loop = false
 
 	-----------------------------------------------------------------------------
 	-- First, check parameters for errors
@@ -477,6 +493,7 @@ local function cli()
 			i = i + 1
 			if arg[i] == "-i" then
 				-- Interactive mode!
+				loop = true
 				intro()
 				local buffer = ""
 				while true do
@@ -486,7 +503,11 @@ local function cli()
 						print()
 						break
 					end
-					buffer = buffer..s
+					if string.lower(s) == "exit" or string.lower(s) == "quit" then
+						loop = false
+						break
+					end
+					buffer = buffer..s.."\n"
 				end
 				input = buffer
 			elseif arg[i] == "-p" then
@@ -495,12 +516,12 @@ local function cli()
 				while true do
 					s = io.read("*line")
 					if not s then break end
-					buffer = buffer..s
+					buffer = buffer..s.."\n"
 				end
 				input = buffer
 			elseif arg[i] == "-o" then
 				if arg[i+1] then
-					output = io.open(arg[i+1])
+					output, err = io.open(arg[i+1], "a+")
 					if output == nil then
 						io.stderr:write("Could not open output file '"..arg[i+1].."'\n")
 						return
@@ -536,9 +557,10 @@ local function cli()
 	-----------------------------------------------------------------------------
 	-- We made it. Now translate().
 	-----------------------------------------------------------------------------
-	local e = translate(input, output, asm, audiotype)
+	local context,err = translate(mmlcontext, input, output, asm, audiotype)
 	if not output == io.stdout then output:close() end
-	if e then io.stderr:write(e) end
+	if err then io.stderr:write(err.."\n") end
+	if loop then cli(context) end
 end
 
 
@@ -551,5 +573,5 @@ if arg == nil then
 elseif #arg <= 0 then
 	help()
 else
-	cli()
+	cli({})
 end
