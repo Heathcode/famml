@@ -350,21 +350,33 @@
 
 
 
+local function dec2base(num,base)
+    local b,k,out,d=base or 10,"0123456789ABCDEFGHIJKLMNOPQRSTUVW",""
+    while num>0 do
+        num,d=math.floor(num/b),math.fmod(num,b)+1
+        out=string.sub(k,d,d)..out
+    end
+    return out
+end
+
+
+
 -----------------------------------------------------------------------------
 -- Assembler settings table
 -- An assembler settings table has the strings to output for a specific assembler
 -----------------------------------------------------------------------------
 local asm_template = {
+	comment="; ",
 	byte="\t.byte ",
 	word="\t.word ",
 	label=function(name) return name..":" end,
 	clabel=function(name) return "@"..name..":" end,
-	hexval=function(num) return "$"..tostring(tonumber(num,16)) end,
+	hex=function(num) return "$"..(dec2base(tonumber(num),16)) end,
 }
 
 
 
-local asm_ca65 = template_asm
+local asm_ca65 = asm_template
 
 
 
@@ -384,11 +396,11 @@ local function translate(context, input, output, asm, audiotype)
 		-- Capture the title
 		-----------------------------------------------------------------------------
 		do
-			for title in string.gmatch(line, "#TITLE%s(.)") do
+			for title in string.gmatch(line, "#TITLE%s+(.+)\n") do
 				if context.title == nil then
 					context.title = title
 				else
-					return context, "One title only, please."
+					return context, "Please use only one title for each file."
 				end
 			end
 		end
@@ -397,11 +409,11 @@ local function translate(context, input, output, asm, audiotype)
 		-- Capture the composer
 		-----------------------------------------------------------------------------
 		do
-			for composer in string.gmatch(line, "#COMPOSER%s(.)") do
+			for composer in string.gmatch(line, "#COMPOSER%s+(.+)\n") do
 				if context.composer == nil then
 					context.composer = composer
 				else
-					return context, "To credit more than one composer, please put them all on one line."
+					return context, "To credit more than one composer, please put them together on one line.\nExample:\n\t#COMPOSER John, Bill\nBut don't do this:\n\t#COMPOSER John #COMPOSER Bill"
 				end
 			end
 		end
@@ -415,9 +427,10 @@ local function translate(context, input, output, asm, audiotype)
 				for i in string.gmatch(envstring, "(%d+)") do
 					table.insert(n, i)
 				end
+				return n
 			end
 
-			for k,v in string.gmatch(line, "@(v%d)%s=%s(%b{})") do
+			for k,v in string.gmatch(line, "@(v%d)%s*=%s*(%b{})") do
 				if v then
 					if context.envelopes == nil then
 						context.envelopes = {}
@@ -441,6 +454,37 @@ local function translate(context, input, output, asm, audiotype)
 		for line in string.gmatch(input, "(.+)\n") do
 			context, err = doline(line, context)
 			if err then return context, err end
+		end
+	end
+
+	-----------------------------------------------------------------------------
+	-- Translate context to assembly
+	-----------------------------------------------------------------------------
+	do
+		if context.envelopes then
+			if context.bytes == nil then context.bytes = {} end
+			for k,v in pairs(context.envelopes) do
+				table.insert(context.bytes, {"","",""})
+				context.bytes[#context.bytes][1] = asm.clabel(k)
+				local i = 1
+				repeat
+					if i>1 then table.insert(context.bytes, {"","",""}) end
+					context.bytes[#context.bytes][2] = asm.byte
+					context.bytes[#context.bytes][3] = asm.hex(v[i])
+					i = i+1
+				until i > #v
+				table.insert(context.bytes, {"","",""})
+				context.bytes[#context.bytes][2] = asm.byte
+				context.bytes[#context.bytes][3] = asm.hex(127)
+			end
+		end
+
+		--if context.title then output:write(asm.comment.."TITLE: "..context.title.."\n") end
+		--if context.composer then output:write(asm.comment.."COMPOSER: "..context.composer.."\n") end
+		if context.bytes then
+			for k,b in pairs(context.bytes) do
+				output:write(b[1]..b[2]..b[3].."\n")
+			end
 		end
 	end
 
@@ -526,7 +570,7 @@ local function cli(context)
 				input = io.read("*all")
 			elseif arg[i] == "-o" then
 				if arg[i+1] then
-					output, err = io.open(arg[i+1], "a+")
+					output, err = io.open(arg[i+1], "w")
 					if output == nil then
 						return context, "Could not open output file '"..arg[i+1].."'\n"
 					end
