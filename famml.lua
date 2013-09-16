@@ -453,8 +453,7 @@ local function translate(context, input, output, asm, audiotype)
 			end
 
 			local function getcommands(channel)
-				for command in string.gmatch(channel, "(@*[lovabcdefg]%d*)") do
-					-- do it!
+				for command in string.gmatch(channel, "(@*>*<*[lovabcdefg]%d*>*<*%.*)") do
 					docommand(command)
 				end
 			end
@@ -470,7 +469,7 @@ local function translate(context, input, output, asm, audiotype)
 			if audiotype == "music" then
 				getchannel("ABCDE")
 			elseif audiotype == "sound" then
-				getcommands(line)
+				getcommands()
 			end
 		end
 
@@ -492,31 +491,40 @@ local function translate(context, input, output, asm, audiotype)
 	-- Translate context to assembly
 	-----------------------------------------------------------------------------
 	do
+		function writeasm(assembly)
+			if assembly then
+				for k,b in pairs(assembly) do
+					output:write(b[1]..b[2]..b[3].."\n")
+				end
+			end
+		end
+
 		if context.envelopes then
-			if context.bytes == nil then context.bytes = {} end
+			local bytes = {}
 			for k,v in pairs(context.envelopes) do
-				table.insert(context.bytes, {"","",""})
-				context.bytes[#context.bytes][1] = asm.clabel(k)
+				table.insert(bytes, {"","",""})
+				bytes[#bytes][1] = asm.clabel(k)
 				local i = 1
 				repeat
-					if i>1 then table.insert(context.bytes, {"","",""}) end
-					context.bytes[#context.bytes][2] = asm.byte
-					context.bytes[#context.bytes][3] = asm.hex(v[i]+192)
+					if i>1 then table.insert(bytes, {"","",""}) end
+					bytes[#bytes][2] = asm.byte
+					bytes[#bytes][3] = asm.hex(v[i]+192)
 					i = i+1
 				until i > #v
-				table.insert(context.bytes, {"","",""})
-				context.bytes[#context.bytes][2] = asm.byte
-				context.bytes[#context.bytes][3] = asm.hex(127)
+				table.insert(bytes, {"","",""})
+				bytes[#bytes][2] = asm.byte
+				bytes[#bytes][3] = asm.hex(127)
+			end
+
+			if #bytes > 255 then
+				return context, "FamiTone limits envelopes to 255 bytes."
+			else
+				writeasm(bytes)
 			end
 		end
 
 		--if context.title then output:write(asm.comment.."TITLE: "..context.title.."\n") end
 		--if context.composer then output:write(asm.comment.."COMPOSER: "..context.composer.."\n") end
-		if context.bytes then
-			for k,b in pairs(context.bytes) do
-				output:write(b[1]..b[2]..b[3].."\n")
-			end
-		end
 	end
 
 	return context
@@ -560,7 +568,6 @@ local function cli(context)
 	function checkparams(context)
 		local i = 0
 		local pipemode = false
-		local intermode = false
 		local soundmode = false
 		local musicmode = false
 		repeat
