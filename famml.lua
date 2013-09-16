@@ -444,6 +444,37 @@ local function translate(context, input, output, asm, audiotype)
 			end
 		end
 
+		-----------------------------------------------------------------------------
+		-- Capture the audio commands
+		-----------------------------------------------------------------------------
+		do
+			local function docommand(command)
+				print(command)
+			end
+
+			local function getcommands(channel)
+				for command in string.gmatch(channel, "(@*[lovabcdefg]%d*)") do
+					-- do it!
+					docommand(command)
+				end
+			end
+
+			local function getchannel(abcde)
+				for c in string.gmatch(abcde, "[ABCDE+]") do
+					for chan in string.gmatch(line, c.."(.*)") do
+						getcommands(chan)
+					end
+				end
+			end
+
+			if audiotype == "music" then
+				getchannel("ABCDE")
+			elseif audiotype == "sound" then
+				getcommands(line)
+			end
+		end
+
+
 		return context
 	end
 
@@ -470,7 +501,7 @@ local function translate(context, input, output, asm, audiotype)
 				repeat
 					if i>1 then table.insert(context.bytes, {"","",""}) end
 					context.bytes[#context.bytes][2] = asm.byte
-					context.bytes[#context.bytes][3] = asm.hex(v[i])
+					context.bytes[#context.bytes][3] = asm.hex(v[i]+192)
 					i = i+1
 				until i > #v
 				table.insert(context.bytes, {"","",""})
