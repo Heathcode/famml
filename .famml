@@ -1,0 +1,68 @@
+local asm_comment="; "
+local asm_byte="\t.byte "
+local asm_word="\t.word "
+local asm_label=function(name) return name..":" end
+local asm_clabel=function(name) return "@"..name..":" end
+
+local asm_assembly = function()
+	return {
+		__bytes = {},
+
+		add_cheap_label = function(asm, name)
+			asm.__bytes[#asm.__bytes].clabel = asm_clabel(name).."\n"..asm.__bytes[#asm.__bytes].clabel
+		end,
+
+		add_comment = function(asm, comment)
+			asm.__bytes[#asm.__bytes].comment = asm_comment..comment
+		end,
+
+		add_label = function(asm, name)
+			asm.__bytes[#asm.__bytes].label = asm_label(name).."\n"..asm.__bytes[#asm.__bytes].label
+		end,
+
+		add_row = function(asm)
+			table.insert(asm.__bytes, {label="",clabel="",command="",args="",comment=""})
+		end,
+
+		place_byte = function(asm, n)
+			asm.__bytes[#asm.__bytes].command = asm_byte
+			asm.__bytes[#asm.__bytes].args = string.format("%x",tonumber(n,16))
+		end,
+
+		size = function(asm)
+			return #asm.__bytes
+		end,
+
+		write = function(asm, output)
+			for k,v in pairs(asm.__bytes) do
+				s = v.label
+				s = s.." "..v.clabel
+				s = s.." "..v.command
+				s = s.." "..v.args
+				s = s.." "..v.comment
+				s = s.."\n"
+				output:write(s)
+			end
+		end,
+	}
+end
+
+return {
+	asm = {
+		byte = asm_byte,
+		word = asm_word,
+		comment = asm_comment,
+		clabel = asm_clabel,
+		label = asm_label,
+		assembly = asm_assembly,
+	},
+
+	check_envelope = function(assembly)
+		if assembly:size() > 255 then return "FamiTone allows envelopes up to 255 bytes." end
+	end,
+
+	envelope_entry = function(num) return string.format("%x", (num+192)) end,
+
+	envelope_end = function() return string.format("%x", 127) end,
+}
+

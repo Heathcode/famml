@@ -350,43 +350,13 @@
 
 
 
-local function dec2base(num,base)
-    local b,k,out,d=base or 10,"0123456789ABCDEFGHIJKLMNOPQRSTUVW",""
-    while num>0 do
-        num,d=math.floor(num/b),math.fmod(num,b)+1
-        out=string.sub(k,d,d)..out
-    end
-    return out
-end
-
-
-
------------------------------------------------------------------------------
--- Assembler settings table
--- An assembler settings table has the strings to output for a specific assembler
------------------------------------------------------------------------------
-local asm_template = {
-	comment="; ",
-	byte="\t.byte ",
-	word="\t.word ",
-	label=function(name) return name..":" end,
-	clabel=function(name) return "@"..name..":" end,
-	hex=function(num) return "$"..(dec2base(tonumber(num),16)) end,
-}
-
-
-
-local asm_ca65 = asm_template
-
-
-
 -----------------------------------------------------------------------------
 -- translate(context input, output, asm, audiotype)
 -- translate() takes an MML context table, a string as input, a file as output,
--- an assembler settings table, and a string which is either "sound" or "music".
+-- and a string which is either "sound" or "music".
 -- translate() then writes to output, and returns its MML context and any error as a string.
 -----------------------------------------------------------------------------
-local function translate(context, input, output, asm, audiotype)
+local function translate(context, input, output, audiotype)
 	-----------------------------------------------------------------------------
 	-- doline(context, line)
 	-- Parse a line
@@ -521,34 +491,23 @@ local function translate(context, input, output, asm, audiotype)
 	-- Translate context to assembly
 	-----------------------------------------------------------------------------
 	local function output_assembly(context, output)
-		local function writeasm(bytes, output)
-			for k,b in pairs(bytes) do
-				output:write(b[1]..b[2]..b[3].."\n")
-			end
-		end
-
 		local function translate_envelopes(context)
 			if context.envelopes then
-				local bytes = {}
-				for k,v in pairs(context.envelopes) do
-					table.insert(bytes, {"","",""})
-					bytes[#bytes][1] = asm.clabel(k)
-					local i = 1
-					repeat
-						if i>1 then table.insert(bytes, {"","",""}) end
-						bytes[#bytes][2] = asm.byte
-						bytes[#bytes][3] = asm.hex(v[i]+192)
-						i = i+1
-					until i > #v
-					table.insert(bytes, {"","",""})
-					bytes[#bytes][2] = asm.byte
-					bytes[#bytes][3] = asm.hex(127)
-				end
+				for key,envelope in pairs(context.envelopes) do
+					local asm = context.config.asm.assembly()
+					asm:add_row()
+					asm:add_cheap_label(key)
 
-				if #bytes > 255 then
-					return context, "FamiTone limits envelopes to 255 bytes."
-				else
-					writeasm(bytes, output)
+					for i,b in pairs(envelope) do
+						if i>1 then asm:add_row() end
+						asm:place_byte(context.config.envelope_entry(b))
+					end
+
+					asm:add_row()
+					asm:place_byte(context.config.envelope_end())
+					err = context.config.check_envelope(asm)
+					if err then return context,err end
+					asm:write(output)
 				end
 			end
 
@@ -597,7 +556,6 @@ local function cli(context)
 	-----------------------------------------------------------------------------
 	local input = ""
 	local output = io.stdout
-	local asm = asm_ca65
 	local audiotype = "music"
 
 	-----------------------------------------------------------------------------
@@ -622,9 +580,9 @@ local function cli(context)
 					return context, "Cannot read from and write to the same file.\n"
 				end
 			end
-			if arg[i] == "-a" then
+			if arg[i] == "-c" then
 				if i == #arg then
-					return context, "Assembler settings file expected after -a\n"
+					return context, "Configuration script expected after -a\n"
 				end
 			end
 		until i >= #arg
@@ -656,9 +614,9 @@ local function cli(context)
 				audiotype = "sound"
 			elseif arg[i] == "-m" then
 				audiotype = "music"
-			elseif arg[i] == "-a" then
+			elseif arg[i] == "-c" then
 				if arg[i+1] then
-					asm = dofile(arg[i+1])
+					context.config = dofile(arg[i+1])
 				end
 			else
 				-- All other options are checked. If this far, then arg[1] is input file.
@@ -679,6 +637,8 @@ local function cli(context)
 	-----------------------------------------------------------------------------
 	-- Now to the meat of the function
 	-----------------------------------------------------------------------------
+	context.config = dofile(".famml")
+
 	context,err = checkparams(context)
 	if err then
 		io.stderr:write(err.."\n")
@@ -691,7 +651,7 @@ local function cli(context)
 		return
 	end
 
-	context,err = translate(context, input, output, asm, audiotype)
+	context,err = translate(context, input, output, audiotype)
 	if not output == io.stdout then output:close() end
 	if err then
 		io.stderr:write(err.."\n")
