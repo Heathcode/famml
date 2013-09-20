@@ -388,14 +388,14 @@ local asm_ca65 = asm_template
 -----------------------------------------------------------------------------
 local function translate(context, input, output, asm, audiotype)
 	-----------------------------------------------------------------------------
-	-- doline(line, context)
+	-- doline(context, line)
 	-- Parse a line
 	-----------------------------------------------------------------------------
-	local function doline(line, context)
+	local function doline(context, line)
 		-----------------------------------------------------------------------------
 		-- Capture the title
 		-----------------------------------------------------------------------------
-		do
+		local function capture_title(context, line)
 			for title in string.gmatch(line, "#TITLE%s+(.+)\n") do
 				if context.title == nil then
 					context.title = title
@@ -403,12 +403,14 @@ local function translate(context, input, output, asm, audiotype)
 					return context, "Please use only one title for each file."
 				end
 			end
+
+			return context
 		end
 
 		-----------------------------------------------------------------------------
 		-- Capture the composer
 		-----------------------------------------------------------------------------
-		do
+		local function capture_composer(context, line)
 			for composer in string.gmatch(line, "#COMPOSER%s+(.+)\n") do
 				if context.composer == nil then
 					context.composer = composer
@@ -416,15 +418,17 @@ local function translate(context, input, output, asm, audiotype)
 					return context, "To credit more than one composer, please put them together on one line.\nExample:\n\t#COMPOSER John, Bill\nBut don't do this:\n\t#COMPOSER John #COMPOSER Bill"
 				end
 			end
+
+			return context
 		end
 
 		-----------------------------------------------------------------------------
 		-- Capture envelopes
 		-----------------------------------------------------------------------------
-		do
-			local function getenvelarray(envstring)
+		local function capture_envelopes(context, line)
+			local function getenvelarray(v)
 				n = {}
-				for i in string.gmatch(envstring, "(%d+)") do
+				for i in string.gmatch(v, "(%d+)") do
 					table.insert(n, i)
 				end
 				return n
@@ -442,93 +446,128 @@ local function translate(context, input, output, asm, audiotype)
 					end
 				end
 			end
+
+			return context
 		end
 
 		-----------------------------------------------------------------------------
 		-- Capture the audio commands
 		-----------------------------------------------------------------------------
-		do
-			local function docommand(command)
-				print(command)
+		local function capture_commands(context, line)
+			local function docommand(context, command)
+				for octave in string.gmatch(command, "o(%d)") do
+					-- do something?
+				end
+
+				return context
 			end
 
-			local function getcommands(channel)
+			local function getcommands(context, channel)
 				for command in string.gmatch(channel, "(@*>*<*[lovabcdefg]%d*>*<*%.*)") do
-					docommand(command)
+					err = docommand(command)
+					if err then return context, err end
 				end
+
+				return context
 			end
 
 			local function getchannel(abcde)
 				for c in string.gmatch(abcde, "[ABCDE+]") do
 					for chan in string.gmatch(line, c.."(.*)") do
-						getcommands(chan)
+						err = getcommands(chan)
+						if err then return context, err end
 					end
 				end
+
+				return context
 			end
 
 			if audiotype == "music" then
-				getchannel("ABCDE")
+				context,err = getchannel("ABCDE")
+				if err then return context, err end
 			elseif audiotype == "sound" then
-				getcommands()
+				context,err = getcommands()
+				if err then return context, err end
 			end
-		end
 
+			return context
+		end --capture_commands
+
+		context,err = capture_title(context, line)
+		if err then return context,err end
+		context,err = capture_composer(context, line)
+		if err then return context,err end
+		context,err = capture_envelopes(context, line)
+		if err then return context,err end
+		context,err = capture_commands(context, line)
+		if err then return context,err end
+		
+		return context
+	end --doline()
+
+	-----------------------------------------------------------------------------
+	-- Cycle through all the lines
+	-----------------------------------------------------------------------------
+	local function dolines(context, input)
+		for line in string.gmatch(input, "(.+)\n") do
+			context, err = doline(context, line)
+			if err then return context, err end
+		end
 
 		return context
 	end
 
 	-----------------------------------------------------------------------------
-	-- Cycle through all the lines
-	-----------------------------------------------------------------------------
-	do
-		for line in string.gmatch(input, "(.+)\n") do
-			context, err = doline(line, context)
-			if err then return context, err end
-		end
-	end
-
-	-----------------------------------------------------------------------------
 	-- Translate context to assembly
 	-----------------------------------------------------------------------------
-	do
-		function writeasm(assembly)
-			if assembly then
-				for k,b in pairs(assembly) do
-					output:write(b[1]..b[2]..b[3].."\n")
+	local function output_assembly(context, output)
+		local function writeasm(bytes, output)
+			for k,b in pairs(bytes) do
+				output:write(b[1]..b[2]..b[3].."\n")
+			end
+		end
+
+		local function translate_envelopes(context)
+			if context.envelopes then
+				local bytes = {}
+				for k,v in pairs(context.envelopes) do
+					table.insert(bytes, {"","",""})
+					bytes[#bytes][1] = asm.clabel(k)
+					local i = 1
+					repeat
+						if i>1 then table.insert(bytes, {"","",""}) end
+						bytes[#bytes][2] = asm.byte
+						bytes[#bytes][3] = asm.hex(v[i]+192)
+						i = i+1
+					until i > #v
+					table.insert(bytes, {"","",""})
+					bytes[#bytes][2] = asm.byte
+					bytes[#bytes][3] = asm.hex(127)
+				end
+
+				if #bytes > 255 then
+					return context, "FamiTone limits envelopes to 255 bytes."
+				else
+					writeasm(bytes, output)
 				end
 			end
-		end
 
-		if context.envelopes then
-			local bytes = {}
-			for k,v in pairs(context.envelopes) do
-				table.insert(bytes, {"","",""})
-				bytes[#bytes][1] = asm.clabel(k)
-				local i = 1
-				repeat
-					if i>1 then table.insert(bytes, {"","",""}) end
-					bytes[#bytes][2] = asm.byte
-					bytes[#bytes][3] = asm.hex(v[i]+192)
-					i = i+1
-				until i > #v
-				table.insert(bytes, {"","",""})
-				bytes[#bytes][2] = asm.byte
-				bytes[#bytes][3] = asm.hex(127)
-			end
+			return context
+		end --translate_envelopes()
 
-			if #bytes > 255 then
-				return context, "FamiTone limits envelopes to 255 bytes."
-			else
-				writeasm(bytes)
-			end
-		end
+		context,err = translate_envelopes(context)
+		if err then return context,err end
 
-		--if context.title then output:write(asm.comment.."TITLE: "..context.title.."\n") end
-		--if context.composer then output:write(asm.comment.."COMPOSER: "..context.composer.."\n") end
-	end
+		return context
+	end --output_assembly()
+
+	context,err = dolines(context, input)
+	if err then return context,err end
+	context,err = output_assembly(context, output)
+	if err then return context,err end
 
 	return context
-end
+end --translate()
 
 
 
