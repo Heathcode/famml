@@ -351,12 +351,101 @@
 
 
 -----------------------------------------------------------------------------
--- translate(context input, output, asm, audiotype)
+-- config_ca65_famitone()
+-- Essentially a namespace for the ca65-famitone configuration. :)
+-----------------------------------------------------------------------------
+local function config_ca65_famitone()
+	local asm_comment="; "
+	local asm_byte="\t.byte "
+	local asm_word="\t.word "
+	local asm_label=function(name) return name..":" end
+	local asm_clabel=function(name) return "@"..name..":" end
+
+	-----------------------------------------------------------------------------
+	-- asm_assembly()
+	-- Returns an interface for adding to and writing the assembly output
+	-----------------------------------------------------------------------------
+	local function asm_assembly()
+		return {
+			__bytes = {},
+
+			-----------------------------------------------------------------------------
+			-- asm:add_cheap_label(name)
+			-- 
+			-----------------------------------------------------------------------------
+			add_cheap_label = function(asm, name)
+				clabel = asm.__bytes[#asm.__bytes].clabel
+				clabel = asm_clabel(name).."\n"..clabel
+				asm.__bytes[#asm.__bytes].clabel = clabel
+			end,
+
+			add_comment = function(asm, comment)
+				asm.__bytes[#asm.__bytes].comment = asm_comment..comment
+			end,
+
+			add_label = function(asm, name)
+				label = asm.__bytes[#asm.__bytes].label
+				label = asm_label(name).."\n"..label
+				asm.__bytes[#asm.__bytes].label = label
+			end,
+
+			add_row = function(asm)
+				row = {label="",clabel="",command="",args="",comment=""}
+				table.insert(asm.__bytes, row)
+			end,
+
+			place_byte = function(asm, n)
+				bytes = asm.__bytes[#asm.__bytes]
+				bytes.command = asm_byte
+				bytes.args = string.upper(string.format("%x",tonumber(n,16)))
+			end,
+
+			size = function(asm)
+				return #asm.__bytes
+			end,
+
+			write = function(asm, out)
+				for k,v in pairs(asm.__bytes) do
+					s = v.label
+					s = s.." "..v.clabel
+					s = s.." "..v.command
+					s = s.." "..v.args
+					s = s.." "..v.comment
+					s = s.."\n"
+					out:write(s)
+				end
+			end,
+		}
+	end
+
+	return {
+		asm = {
+			byte = asm_byte,
+			word = asm_word,
+			comment = asm_comment,
+			clabel = asm_clabel,
+			label = asm_label,
+			assembly = asm_assembly,
+		},
+
+		check_envelope = function(assembly)
+			if assembly:size() > 255 then return "FamiTone allows envelopes up to 255 bytes." end
+		end,
+
+		envelope_entry = function(num) return string.format("%x", (num+192)) end,
+
+		envelope_end = function() return string.format("%x", 127) end,
+	}
+end
+
+
+
+-----------------------------------------------------------------------------
+-- translate(context, input, output)
 -- translate() takes an MML context table, a string as input, a file as output,
--- and a string which is either "sound" or "music".
 -- translate() then writes to output, and returns its MML context and any error as a string.
 -----------------------------------------------------------------------------
-local function translate(context, input, output, audiotype)
+local function translate(context, input, output)
 	-----------------------------------------------------------------------------
 	-- doline(context, line)
 	-- Parse a line
@@ -520,6 +609,15 @@ local function translate(context, input, output, audiotype)
 		return context
 	end --output_assembly()
 
+	-- Context should be a table
+	if context == nil then context = {config = config_ca65_famitone()} end
+
+	-- Print to stdout by default
+	if output == nil then output = io.stdout end
+
+	-- By default, set audiotype to music
+	if context.audiotype == nil then context.audiotype = "music" end
+
 	context,err = dolines(context, input)
 	if err then return context,err end
 	context,err = output_assembly(context, output)
@@ -536,13 +634,10 @@ end --translate()
 -----------------------------------------------------------------------------
 local function help()
 	print("Famml! - Convert MML to assembly compatible with NES and FamiTone\n")
+	print("Usage: famml input.mml -o output")
 	print("   -h  See this help screen")
 	print("   -o  Redirect output to a file, as opposed to standard output")
 	print("   -p  Accept input from a pipe")
-	print()
-	print("   -a  Load assembler settings from a file (default is ca65)")
-	print("   -s  Output sfx")
-	print("   -m  Output music (default)")
 end
 
 
@@ -556,38 +651,22 @@ local function cli(context)
 	-----------------------------------------------------------------------------
 	local input = ""
 	local output = io.stdout
-	local audiotype = "music"
+	context.audiotype = "music"
 
 	-----------------------------------------------------------------------------
 	-- checkparams(context)
 	-- checkparams validates the parameters in arg
 	-----------------------------------------------------------------------------
 	function checkparams(context)
-		local i = 0
-		local pipemode = false
-		local soundmode = false
-		local musicmode = false
-		repeat
-			i = i + 1
-			if arg[i] == "-p" then pipemode = true end
-			if arg[i] == "-s" then soundmode = true end
-			if arg[i] == "-m" then musicmode = true end
-			if arg[i] == "-h" then help() return end
-			if arg[i] == "-o" then
+		for i,v in pairs(arg) do
+			if v == "-h" then help() return end
+			if v == "-o" then
 				if i == #arg then
 					return context, "Output file expected after -o\n"
-				elseif arg[1] == arg[i+1] then
+				elseif v == arg[1] then
 					return context, "Cannot read from and write to the same file.\n"
 				end
 			end
-			if arg[i] == "-c" then
-				if i == #arg then
-					return context, "Configuration script expected after -a\n"
-				end
-			end
-		until i >= #arg
-		if soundmode and musicmode then
-			return context, "Because FamiTone's sfx and music formats differ, please select one or the other.\n"
 		end
 
 		return context
@@ -611,13 +690,9 @@ local function cli(context)
 					end
 				end
 			elseif arg[i] == "-s" then
-				audiotype = "sound"
+				context.audiotype = "sound"
 			elseif arg[i] == "-m" then
-				audiotype = "music"
-			elseif arg[i] == "-c" then
-				if arg[i+1] then
-					context.config = dofile(arg[i+1])
-				end
+				context.audiotype = "music"
 			else
 				-- All other options are checked. If this far, then arg[1] is input file.
 				if i == 1 then
@@ -637,7 +712,7 @@ local function cli(context)
 	-----------------------------------------------------------------------------
 	-- Now to the meat of the function
 	-----------------------------------------------------------------------------
-	context.config = dofile(".famml")
+	context.config = config_ca65_famitone()
 
 	context,err = checkparams(context)
 	if err then
@@ -662,12 +737,13 @@ end
 
 
 -----------------------------------------------------------------------------
--- If this script is loaded from the interpreter or without parameters, it should just help().
+-- If this script is loaded from the command line without parameters, it should just help().
+-- If it is run from the interpreter, it should return an interface to famml
 -----------------------------------------------------------------------------
 if arg == nil then
-	help()
+	return {config_ca65_famitone=config_ca65_famitone, translate=translate}
 elseif #arg <= 0 then
-	help()
+	return help()
 else
 	return cli({})
 end
