@@ -456,24 +456,28 @@ local function config_ca65_famitone()
 			assembly = asm_assembly,
 		},
 
-		-----------------------------------------------------------------------------
-		-- check_envelope(asm)
-		-- Validate this code before calling asm:write() 			-----------------------------------------------------------------------------
-		check_envelope = function(assembly)
-			if assembly:size() > 255 then return "FamiTone allows envelopes up to 255 bytes." end
-		end,
+		driver = {
+			-----------------------------------------------------------------------------
+			-- check_envelope(asm)
+			-- Validate this code before calling asm:write() 				-----------------------------------------------------------------------------
+			check_envelope = function(assembly)
+				if assembly:size() > 255 then
+					return "FamiTone allows envelopes up to 255 bytes."
+				end
+			end,
 
-		-----------------------------------------------------------------------------
-		-- envelope_entry(num)
-		-- Given a numeric envelope entry (num), return a string formatted for this audio driver
-		-----------------------------------------------------------------------------
-		envelope_entry = function(num) return string.format("%x", (num+192)) end,
+			-----------------------------------------------------------------------------
+			-- envelope_entry(num)
+			-- Given a numeric envelope entry (num), return a string formatted for this driver
+			-----------------------------------------------------------------------------
+			envelope_entry = function(num) return string.format("%x", (num+192)) end,
 
-		-----------------------------------------------------------------------------
-		-- envelope_end()
-		-- Return this audio driver's indicator for the end of an envelope
-		-----------------------------------------------------------------------------
-		envelope_end = function() return string.format("%x", 127) end,
+			-----------------------------------------------------------------------------
+			-- envelope_end()
+			-- Return this audio driver's indicator for the end of an envelope
+			-----------------------------------------------------------------------------
+			envelope_end = function() return string.format("%x", 127) end,
+		} --driver
 	}
 end
 
@@ -628,12 +632,12 @@ local function translate(context)
 
 					for i,b in pairs(envelope) do
 						if i>1 then asm:add_line() end
-						asm:place_byte(context.config.envelope_entry(b))
+						asm:place_byte(context.config.driver.envelope_entry(b))
 					end
 
 					asm:add_line()
-					asm:place_byte(context.config.envelope_end())
-					err = context.config.check_envelope(asm)
+					asm:place_byte(context.config.driver.envelope_end())
+					err = context.config.driver.check_envelope(asm)
 					if err then return context,err end
 					context.output = context.output..asm:write()
 				end
