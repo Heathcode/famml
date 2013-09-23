@@ -409,7 +409,7 @@ local function config_ca65_famitone()
 			place_byte = function(asm, n)
 				bytes = asm.__bytes[#asm.__bytes]
 				bytes.command = asm_byte
-				bytes.args = string.upper(string.format("%x",tonumber(n,16)))
+				bytes.args = "$"..string.format("%x",tonumber(n,16))
 			end,
 
 			-----------------------------------------------------------------------------
@@ -552,7 +552,7 @@ local function translate(context)
 		-- Capture the audio commands
 		-----------------------------------------------------------------------------
 		local function capture_commands(context, line)
-			local function docommand(context, command)
+			local function docommand(command, command)
 				for octave in string.gmatch(command, "o(%d)") do
 					-- do something?
 				end
@@ -562,17 +562,17 @@ local function translate(context)
 
 			local function getcommands(context, channel)
 				for command in string.gmatch(channel, "(@*>*<*[lovabcdefg]%d*>*<*%.*)") do
-					err = docommand(command)
+					err = docommand(context, command)
 					if err then return context, err end
 				end
 
 				return context
 			end
 
-			local function getchannel(abcde)
+			local function getchannel(context, abcde)
 				for c in string.gmatch(abcde, "[ABCDE+]") do
 					for chan in string.gmatch(line, c.."(.*)") do
-						err = getcommands(chan)
+						err = getcommands(context, chan)
 						if err then return context, err end
 					end
 				end
@@ -581,10 +581,10 @@ local function translate(context)
 			end
 
 			if context.audiotype == "music" then
-				context,err = getchannel("ABCDE")
+				context,err = getchannel(context, "ABCDE")
 				if err then return context, err end
 			elseif context.audiotype == "sound" then
-				context,err = getcommands()
+				context,err = getcommands(context, line)
 				if err then return context, err end
 			end
 
@@ -668,6 +668,21 @@ end --translate()
 
 
 
+local function create_context()
+	return {
+		config = config_ca65_famitone(),
+		input = "",
+		output = "",
+		outfile = io.stdout,
+		audiotype = "music",
+		composer = "",
+		title = "",
+		translate = translate
+	}
+end
+
+
+
 -----------------------------------------------------------------------------
 -- help()
 -- Just show some friendly information about the program. :)
@@ -683,7 +698,7 @@ end
 
 -----------------------------------------------------------------------------
 -- cli()
--- cli() handles the command-line interface, with all the parameters to be used.
+-- cli() handles the command-line interface
 -----------------------------------------------------------------------------
 local function cli()
 	-----------------------------------------------------------------------------
@@ -709,13 +724,11 @@ local function cli()
 	-- Process the parameters, including pipe and interactive mode
 	-----------------------------------------------------------------------------
 	function readinput(context)
-		local i = 0
-		repeat
-			i = i + 1
-			if arg[i] == "-p" then
+		for i,v in pairs(arg) do
+			if v == "-p" then
 				-- Pipe mode!
 				context.input = io.read("*all")
-			elseif arg[i] == "-o" then
+			elseif v == "-o" then
 				if arg[i+1] then
 					context.outfile, err = io.open(arg[i+1], "w")
 					if output == nil then
@@ -733,7 +746,7 @@ local function cli()
 					f:close()
 				end
 			end
-		until i >= #arg
+		end
 
 		return context
 	end
@@ -741,9 +754,7 @@ local function cli()
 	-----------------------------------------------------------------------------
 	-- Now to the meat of the function
 	-----------------------------------------------------------------------------
-	context = {}
-	context.config = config_ca65_famitone()
-	context.outfile = io.stdout
+	context = create_context()
 
 	context,err = checkparams(context)
 	if err then
@@ -773,12 +784,12 @@ end
 
 -----------------------------------------------------------------------------
 -- If this script is loaded from the command line without parameters, it should just help().
--- If it is run from the interpreter, it should return an interface to famml
+-- If it is run from dofile, it should return an interface to famml
 -----------------------------------------------------------------------------
 if arg == nil then
 	return {
 		config_ca65_famitone=config_ca65_famitone,
-		translate=translate
+		create_context=create_context,
 	}
 elseif #arg <= 0 then
 	return help()
