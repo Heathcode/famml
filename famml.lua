@@ -649,7 +649,7 @@ local function translate(context)
 	end --output_assembly()
 
 	-- Context should be a table with some configuration
-	if context == nil then context = {config = config_ca65_famitone()} end
+	if context == nil then context = create_context() end
 
 	-- output and input are strings
 	if context.output == nil then context.output = "" end
