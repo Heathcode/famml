@@ -423,7 +423,10 @@ local function config_ca65_famitone()
 				::code_size::
 				asm.__code_size = asm.__code_size + 1
 				line.nargs = line.nargs+1
-				if line.nargs == line.maxargs then asm:add_line() end
+				if line.nargs == line.maxargs then
+					asm:add_line()
+					line.nargs = 0
+				end
 			end,
 
 			-----------------------------------------------------------------------------
