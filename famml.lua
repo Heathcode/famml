@@ -367,39 +367,40 @@ local function config_ca65_famitone()
 	-----------------------------------------------------------------------------
 	local function asm_assembly()
 		return {
-			__bytes = {},
+			__code = {},
+			__code_size = 0,
 
 			-----------------------------------------------------------------------------
 			-- asm:add_cheap_label(name)
 			-----------------------------------------------------------------------------
 			add_cheap_label = function(asm, name)
-				clabel = asm.__bytes[#asm.__bytes].clabel
+				clabel = asm.__code[#asm.__code].clabel
 				clabel = asm_clabel(name).."\n"..clabel
-				asm.__bytes[#asm.__bytes].clabel = clabel
+				asm.__code[#asm.__code].clabel = clabel
 			end,
 
 			-----------------------------------------------------------------------------
 			-- asm:add_comment(comment)
 			-----------------------------------------------------------------------------
 			add_comment = function(asm, comment)
-				asm.__bytes[#asm.__bytes].comment = asm_comment..comment
+				asm.__code[#asm.__code].comment = asm_comment..comment
 			end,
 
 			-----------------------------------------------------------------------------
 			-- asm:add_label(name)
 			-----------------------------------------------------------------------------
 			add_label = function(asm, name)
-				label = asm.__bytes[#asm.__bytes].label
+				label = asm.__code[#asm.__code].label
 				label = asm_label(name).."\n"..label
-				asm.__bytes[#asm.__bytes].label = label
+				asm.__code[#asm.__code].label = label
 			end,
 
 			-----------------------------------------------------------------------------
 			-- asm:add_line()
 			-----------------------------------------------------------------------------
 			add_line = function(asm)
-				row = {label="",clabel="",command="",args="",comment=""}
-				table.insert(asm.__bytes, row)
+				row = {label="",clabel="",command="",args="",comment="",nargs=0,maxargs=10,}
+				table.insert(asm.__code, row)
 			end,
 
 			-----------------------------------------------------------------------------
@@ -407,9 +408,22 @@ local function config_ca65_famitone()
 			-- Use the assembler's byte directive, such as .byte or db
 			-----------------------------------------------------------------------------
 			place_byte = function(asm, n)
-				bytes = asm.__bytes[#asm.__bytes]
-				bytes.command = asm_byte
-				bytes.args = "$"..string.format("%x",tonumber(n,16))
+				local line = asm.__code[#asm.__code]
+				if line.command == "" then
+					line.command = asm_byte
+					line.args = "$"..string.format("%x",tonumber(n,16))
+					goto code_size
+				elseif line.command == asm_byte then
+					line.args = line.args..", $"..string.format("%x",tonumber(n,16))
+					goto code_size
+				elseif not line.command == asm_byte then
+					asm:add_line()
+					return asm:place_byte(n)
+				end
+				::code_size::
+				asm.__code_size = asm.__code_size + 1
+				line.nargs = line.nargs+1
+				if line.nargs == line.maxargs then asm:add_line() end
 			end,
 
 			-----------------------------------------------------------------------------
@@ -417,12 +431,7 @@ local function config_ca65_famitone()
 			-- Return the number of bytes
 			-----------------------------------------------------------------------------
 			size = function(asm)
-				-----------------------------------------------------------------------------
-				-- TODO: Currently, only returns number of lines.
-				-- This assumes each line is a byte directive, placing a single byte.
-				-- This will produce errors. An algorithm will be needed.
-				-----------------------------------------------------------------------------
-				return #asm.__bytes
+				return asm.__code_size
 			end,
 
 			-----------------------------------------------------------------------------
@@ -432,7 +441,7 @@ local function config_ca65_famitone()
 			write = function(asm)
 				s = ""
 
-				for k,v in pairs(asm.__bytes) do
+				for k,v in pairs(asm.__code) do
 					s = s..v.label
 					s = s.." "..v.clabel
 					s = s.." "..v.command
@@ -631,7 +640,6 @@ local function translate(context)
 					asm:add_cheap_label(key)
 
 					for i,b in pairs(envelope) do
-						if i>1 then asm:add_line() end
 						asm:place_byte(context.config.driver.envelope_entry(b))
 					end
 
