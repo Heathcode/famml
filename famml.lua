@@ -366,7 +366,7 @@ local function config_ca65_famitone()
 	-- Returns an interface for adding to and writing the assembly output
 	-----------------------------------------------------------------------------
 	local function asm_assembly()
-		return {
+		local asm = {
 			__code = {},
 			__code_size = 0,
 
@@ -416,14 +416,17 @@ local function config_ca65_famitone()
 				elseif line.command == asm_byte then
 					line.args = line.args..", $"..string.format("%x",tonumber(n,16))
 					goto code_size
-				elseif not line.command == asm_byte then
+				else
 					asm:add_line()
 					return asm:place_byte(n)
 				end
 				::code_size::
 				asm.__code_size = asm.__code_size + 1
 				line.nargs = line.nargs+1
-				if line.nargs == line.maxargs then asm:add_line() end
+				if line.nargs == line.maxargs then
+					asm:add_line()
+					line.nargs = 0
+				end
 			end,
 
 			-----------------------------------------------------------------------------
@@ -452,8 +455,10 @@ local function config_ca65_famitone()
 
 				return s
 			end,
-		}
-	end
+		} --asm = { stuff }
+		asm:add_line()
+		return asm
+	end --asm_assembly()
 
 	return {
 		asm = {
@@ -468,7 +473,8 @@ local function config_ca65_famitone()
 		driver = {
 			-----------------------------------------------------------------------------
 			-- check_envelope(asm)
-			-- Validate this code before calling asm:write() 				-----------------------------------------------------------------------------
+			-- Validate this code before calling asm:write()
+ 			-----------------------------------------------------------------------------
 			check_envelope = function(assembly)
 				if assembly:size() > 255 then
 					return "FamiTone allows envelopes up to 255 bytes."
@@ -636,7 +642,6 @@ local function translate(context)
 			if context.envelopes then
 				for key,envelope in pairs(context.envelopes) do
 					local asm = context.config.asm.assembly()
-					asm:add_line()
 					asm:add_cheap_label(key)
 
 					for i,b in pairs(envelope) do
