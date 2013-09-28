@@ -242,10 +242,17 @@
 -- 
 -- @chn0:
 -- @chn0_0:
+-- 	; $47 = instrument #7
+-- 	; $18 = B, second octave
+-- 	; $80 = empty row
+-- 	; $1a = C#, third octave
+-- 	; $8a = 10 empty rows
 -- 	.byte $47,$18,$80,$18,$80,$1a,$8a
 -- @chn0_loop:
 -- @chn0_1:
+-- 	; $8f = 15 empty rows
 -- 	.byte $8f
+-- 	; $fe = end
 -- 	.byte $fe
 -- 	.word @chn0_loop
 -- 
@@ -411,10 +418,18 @@ local function config_ca65_famitone()
 				local line = asm.__code[#asm.__code]
 				if line.command == "" then
 					line.command = asm_byte
-					line.args = "$"..string.format("%x",tonumber(n,16))
+					if type(n) == "number" then
+						line.args = line.args.."$"..string.format("%x",n)
+					elseif type(n) == "string" then
+						line.args = line.args.."$"..n
+					end
 					goto code_size
 				elseif line.command == asm_byte then
-					line.args = line.args..", $"..string.format("%x",tonumber(n,16))
+					if type(n) == "number" then
+						line.args = line.args..", $"..string.format("%x",n)
+					elseif type(n) == "string" then
+						line.args = line.args..", $"..n
+					end
 					goto code_size
 				else
 					asm:add_line()
@@ -564,51 +579,81 @@ local function translate(context)
 				end
 			end
 
+			local asm = context.config.asm.assembly()
+			table.insert(context.assemblies, asm)
+			for k,v in pairs(context.envelopes) do
+				asm:add_cheap_label(k)
+				for i,n in pairs(v) do
+					asm:place_byte(context.config.driver.envelope_entry(n))
+				end
+				asm:add_line()
+				asm:place_byte(context.config.driver.envelope_end())
+			end
+
 			return context
-		end
+		end --capture_envelopes()
 
 		-----------------------------------------------------------------------------
-		-- Capture the audio commands
+		-- Capture the audio channels
 		-----------------------------------------------------------------------------
-		local function capture_commands(context, line)
-			local function docommand(command, command)
-				for octave in string.gmatch(command, "o(%d)") do
-					-- do something?
+		local function capture_channels(context, line)
+			local function docommand(context, command, asm)
+				asm:add_comment(command)
+
+				local notes = {
+					c=0,
+					d=2,
+					e=4,
+					f=5,
+					g=7,
+					a=9,
+					b=11,
+				}
+
+				for note in string.gmatch(command, "[abcdefg]") do
+					asm:place_byte(notes[note])
+					asm:add_line()
 				end
 
 				return context
 			end
 
-			local function getcommands(context, channel)
+			local function getcommands(context, channel, asm)
+				if asm == nil then asm = context.config.asm.assembly() end
+
 				for command in string.gmatch(channel, "(@*>*<*[lovabcdefg]%d*>*<*%.*)") do
-					err = docommand(context, command)
+					context, err = docommand(context, command, asm)
 					if err then return context, err end
 				end
 
-				return context
+				return context, nil, asm
 			end
 
 			local function getchannel(context, abcde)
+				local asm = context.config.asm.assembly()
+
 				for c in string.gmatch(abcde, "[ABCDE+]") do
 					for chan in string.gmatch(line, c.."(.*)") do
-						err = getcommands(context, chan)
+						context, err, asm = getcommands(context, chan, asm)
 						if err then return context, err end
 					end
 				end
 
-				return context
+				return context, nil, asm
 			end
 
 			if context.audiotype == "music" then
-				context,err = getchannel(context, "ABCDE")
-				if err then return context, err end
+				context,err,asm = getchannel(context, "ABCDE")
+				if err then return context, err
+				else context.assemblies.channels = asm end
 			elseif context.audiotype == "sound" then
 				context,err = getcommands(context, line)
-				if err then return context, err end
+				if err then return context, err
+				else context.assemblies.commands = asm end
 			end
 
 			return context
-		end --capture_commands
+		end --capture_channels
 
 		context,err = capture_title(context, line)
 		if err then return context,err end
@@ -616,7 +661,7 @@ local function translate(context)
 		if err then return context,err end
 		context,err = capture_envelopes(context, line)
 		if err then return context,err end
-		context,err = capture_commands(context, line)
+		context,err = capture_channels(context, line)
 		if err then return context,err end
 		
 		return context
@@ -638,29 +683,9 @@ local function translate(context)
 	-- Translate context to assembly
 	-----------------------------------------------------------------------------
 	local function output_assembly(context)
-		local function translate_envelopes(context)
-			if context.envelopes then
-				for key,envelope in pairs(context.envelopes) do
-					local asm = context.config.asm.assembly()
-					asm:add_cheap_label(key)
-
-					for i,b in pairs(envelope) do
-						asm:place_byte(context.config.driver.envelope_entry(b))
-					end
-
-					asm:add_line()
-					asm:place_byte(context.config.driver.envelope_end())
-					err = context.config.driver.check_envelope(asm)
-					if err then return context,err end
-					context.output = context.output..asm:write()
-				end
-			end
-
-			return context
-		end --translate_envelopes()
-
-		context,err = translate_envelopes(context)
-		if err then return context,err end
+		for k,asm in pairs(context.assemblies) do
+			context.output = context.output..asm:write()
+		end
 
 		return context
 	end --output_assembly()
@@ -694,7 +719,9 @@ local function create_context()
 		audiotype = "music",
 		composer = "",
 		title = "",
-		translate = translate
+		translate = translate,
+		assemblies = {},
+		envelopes = {},
 	}
 end
 
