@@ -381,8 +381,12 @@ local function config_ca65_famitone()
 			-- asm:add_cheap_label(name)
 			-----------------------------------------------------------------------------
 			add_cheap_label = function(asm, name)
-				clabel = asm.__code[#asm.__code].clabel
-				clabel = asm_clabel(name).."\n"..clabel
+				local clabel = asm.__code[#asm.__code].clabel
+				if string.len(clabel) > 0 then
+					clabel = asm_clabel(name)
+				else
+					clabel = asm_clabel(name).."\n"..clabel
+				end
 				asm.__code[#asm.__code].clabel = clabel
 			end,
 
@@ -397,8 +401,12 @@ local function config_ca65_famitone()
 			-- asm:add_label(name)
 			-----------------------------------------------------------------------------
 			add_label = function(asm, name)
-				label = asm.__code[#asm.__code].label
-				label = asm_label(name).."\n"..label
+				local label = asm.__code[#asm.__code].label
+				if string.len(label) > 0 then
+					label = asm_label(name).."\n"..label
+				else
+					label = asm_label(name)
+				end
 				asm.__code[#asm.__code].label = label
 			end,
 
@@ -457,17 +465,18 @@ local function config_ca65_famitone()
 			-- Returns a string with all the lines of code, ready to print.
 			-----------------------------------------------------------------------------
 			write = function(asm)
-				s = ""
-
+				local s = ""
 				for k,v in pairs(asm.__code) do
-					s = s..v.label
-					s = s.." "..v.clabel
-					s = s.." "..v.command
-					s = s.." "..v.args
-					s = s.." "..v.comment
-					s = s.."\n"
-				end
+					local list = {v.label, v.clabel, v.command, v.args, v.comment}
+					for k,v in pairs(list) do
+						if string.len(v) > 0 then
+							s = s..v
+							if k == 3 or k == 4 then s = s.."\t" end
+						end
+					end
 
+					s = s .. "\n"
+				end
 				return s
 			end,
 		} --asm = { stuff }
@@ -486,6 +495,8 @@ local function config_ca65_famitone()
 		},
 
 		driver = {
+			channels = "ABCDE",
+
 			-----------------------------------------------------------------------------
 			-- check_envelope(asm)
 			-- Validate this code before calling asm:write()
@@ -598,7 +609,7 @@ local function translate(context)
 		-----------------------------------------------------------------------------
 		local function capture_channels(context, line)
 			local function docommand(context, command, asm)
-				asm:add_comment(command)
+				asm:add_comment(command..", octave "..tostring(context.octave))
 
 				local notes = {
 					c=0,
@@ -610,8 +621,26 @@ local function translate(context)
 					b=11,
 				}
 
+				for cmd in string.gmatch(command, "[ilov]") do
+					if cmd == "l" then
+						for l in string.gmatch(command, "l(%d+)") do
+							context.notelen = tonumber(l)
+						end
+					elseif cmd == "o" then
+						for o in string.gmatch(command, "o(%d+)") do
+							o = tonumber(o)
+							if o >= 1 then context.octave = o
+							else return context, command..": Octaves must be >= 1" end
+						end
+					elseif cmd == "v" then
+						for v in string.gmatch(command, "v(%d+)") do
+							context.volume = tonumber(v)
+						end
+					end
+				end
+
 				for note in string.gmatch(command, "[abcdefg]") do
-					asm:place_byte(notes[note])
+					asm:place_byte(notes[note] * context.octave)
 					asm:add_line()
 				end
 
@@ -621,7 +650,7 @@ local function translate(context)
 			local function getcommands(context, channel, asm)
 				if asm == nil then asm = context.config.asm.assembly() end
 
-				for command in string.gmatch(channel, "(@*>*<*[lovabcdefg]%d*>*<*%.*)") do
+				for command in string.gmatch(channel, "(@*>*<*[ilovabcdefg]%d*>*<*%.*)") do
 					context, err = docommand(context, command, asm)
 					if err then return context, err end
 				end
@@ -632,8 +661,14 @@ local function translate(context)
 			local function getchannel(context, abcde)
 				local asm = context.config.asm.assembly()
 
-				for c in string.gmatch(abcde, "[ABCDE+]") do
-					for chan in string.gmatch(line, c.."(.*)") do
+				local channels = {}
+				for c in string.gmatch(abcde, "["..abcde.."-]") do
+					table.insert(channels,c)
+				end
+
+				for k,v in pairs(channels) do
+					asm:add_cheap_label("chan"..v)
+					for chan in string.gmatch(line, v.."%s*=%s*(%b{})") do
 						context, err, asm = getcommands(context, chan, asm)
 						if err then return context, err end
 					end
@@ -643,13 +678,13 @@ local function translate(context)
 			end
 
 			if context.audiotype == "music" then
-				context,err,asm = getchannel(context, "ABCDE")
-				if err then return context, err
-				else context.assemblies.channels = asm end
+				context,err,asm = getchannel(context, context.config.driver.channels)
+				if err then return context, err end
+				table.insert(context.assemblies, asm)
 			elseif context.audiotype == "sound" then
-				context,err = getcommands(context, line)
-				if err then return context, err
-				else context.assemblies.commands = asm end
+				context,err,asm = getcommands(context, line)
+				if err then return context, err end
+				table.insert(context.assemblies, asm)
 			end
 
 			return context
@@ -693,12 +728,11 @@ local function translate(context)
 	-- Context should be a table with some configuration
 	if context == nil then context = create_context() end
 
-	-- output and input are strings
-	if context.output == nil then context.output = "" end
-	if context.input == nil then context.input = "" end
-
-	-- By default, set audiotype to music
-	if context.audiotype == nil then context.audiotype = "music" end
+	do
+		local asm = context.config.asm.assembly()
+		asm:add_label("famml"..tostring(math.random(0,1000)))
+		table.insert(context.assemblies, asm)
+	end
 
 	context,err = dolines(context)
 	if err then return context,err end
@@ -720,8 +754,13 @@ local function create_context()
 		composer = "",
 		title = "",
 		translate = translate,
-		assemblies = {},
 		envelopes = {},
+		assemblies = {},
+		instrument = 0,
+		notelen = 0,
+		octave = 1,
+		volume = 0,
+		volenv = 0,
 	}
 end
 
