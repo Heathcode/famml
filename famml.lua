@@ -495,8 +495,6 @@ local function config_ca65_famitone()
 		},
 
 		driver = {
-			channels = "ABCDE",
-
 			-----------------------------------------------------------------------------
 			-- check_envelope(asm)
 			-- Validate this code before calling asm:write()
@@ -531,184 +529,38 @@ end
 -----------------------------------------------------------------------------
 local function translate(context)
 	-----------------------------------------------------------------------------
-	-- doline(context, line)
-	-- Parse a line
+	-- Validate and process the input as a Lua table with proper members
 	-----------------------------------------------------------------------------
-	local function doline(context, line)
-		-----------------------------------------------------------------------------
-		-- Capture the title
-		-----------------------------------------------------------------------------
-		local function capture_title(context, line)
-			for title in string.gmatch(line, "#TITLE%s+(.+)\n") do
-				if context.title == nil then
-					context.title = title
-				else
-					return context, "Please use only one title for each file."
-				end
-			end
+	local function validate_input(context)
+		assert(type(context) == "table", "context should be a table.")
+		assert(type(context.input) == "table", "context.input should be a table.")
 
-			return context
+		if context.input.title then
+			assert(type(context.input.title) == "string", "context.input.title should be a string.")
 		end
 
-		-----------------------------------------------------------------------------
-		-- Capture the composer
-		-----------------------------------------------------------------------------
-		local function capture_composer(context, line)
-			for composer in string.gmatch(line, "#COMPOSER%s+(.+)\n") do
-				if context.composer == nil then
-					context.composer = composer
-				else
-					return context, "To credit more than one composer, please put them together on one line.\nExample:\n\t#COMPOSER John, Bill\nBut don't do this:\n\t#COMPOSER John #COMPOSER Bill"
-				end
-			end
-
-			return context
+		if context.input.composer then
+			assert(type(context.input.composer) == "string", "context.input.composer should be a string.")
 		end
 
-		-----------------------------------------------------------------------------
-		-- Capture envelopes
-		-----------------------------------------------------------------------------
-		local function capture_envelopes(context, line)
-			local function getenvelarray(v)
-				n = {}
-				for i in string.gmatch(v, "(%d+)") do
-					table.insert(n, i)
-				end
-				return n
-			end
+		if context.input.programmer then
+			assert(type(context.input.programmer) == "string", "context.input.programmer should be a string.")
+		end
 
-			for k,v in string.gmatch(line, "@(v%d)%s*=%s*(%b{})") do
-				if v then
-					if context.envelopes == nil then
-						context.envelopes = {}
-						context.envelopes[k] = getenvelarray(v)
-					elseif context.envelopes[k] == nil then
-						context.envelopes[k] = getenvelarray(v)
-					else
-						return context, "Envelopes must be constant."
-					end
+		if context.input.channels then
+			assert(type(context.input.channels) == "table", "context.input.channels should be a table.")
+			for k,v in pairs(context.input.channels) do
+				if v.octave then
+					assert(type(v.octave) == "number", "channel.octave should be a number.")
+					-- TODO: Shouldn't octave be validated by config?
+				elseif v.notelen then
+					assert(type(v.notelen) == "number", "channel.notelen should be a number.")
+					-- TODO: Shouldn't notelen be validated by config?
+				elseif v.commands then
+					assert(type(v.commands) == "string", "channel.commands should be a string.")
+					-- TODO: commands should definitely be captured here
 				end
 			end
-
-			local asm = context.config.asm.assembly()
-			table.insert(context.assemblies, asm)
-			for k,v in pairs(context.envelopes) do
-				asm:add_cheap_label(k)
-				for i,n in pairs(v) do
-					asm:place_byte(context.config.driver.envelope_entry(n))
-				end
-				asm:add_line()
-				asm:place_byte(context.config.driver.envelope_end())
-			end
-
-			return context
-		end --capture_envelopes()
-
-		-----------------------------------------------------------------------------
-		-- Capture the audio channels
-		-----------------------------------------------------------------------------
-		local function capture_channels(context, line)
-			local function docommand(context, command, asm)
-				asm:add_comment(command..", octave "..tostring(context.octave))
-
-				local notes = {
-					c=0,
-					d=2,
-					e=4,
-					f=5,
-					g=7,
-					a=9,
-					b=11,
-				}
-
-				for cmd in string.gmatch(command, "[ilov]") do
-					if cmd == "l" then
-						for l in string.gmatch(command, "l(%d+)") do
-							context.notelen = tonumber(l)
-						end
-					elseif cmd == "o" then
-						for o in string.gmatch(command, "o(%d+)") do
-							o = tonumber(o)
-							if o >= 1 then context.octave = o
-							else return context, command..": Octaves must be >= 1" end
-						end
-					elseif cmd == "v" then
-						for v in string.gmatch(command, "v(%d+)") do
-							context.volume = tonumber(v)
-						end
-					end
-				end
-
-				for note in string.gmatch(command, "[abcdefg]") do
-					asm:place_byte(notes[note] * context.octave)
-					asm:add_line()
-				end
-
-				return context
-			end
-
-			local function getcommands(context, channel, asm)
-				if asm == nil then asm = context.config.asm.assembly() end
-
-				for command in string.gmatch(channel, "(@*>*<*[ilovabcdefg]%d*>*<*%.*)") do
-					context, err = docommand(context, command, asm)
-					if err then return context, err end
-				end
-
-				return context, nil, asm
-			end
-
-			local function getchannel(context, abcde)
-				local asm = context.config.asm.assembly()
-
-				local channels = {}
-				for c in string.gmatch(abcde, "["..abcde.."-]") do
-					table.insert(channels,c)
-				end
-
-				for k,v in pairs(channels) do
-					asm:add_cheap_label("chan"..v)
-					for chan in string.gmatch(line, v.."%s*=%s*(%b{})") do
-						context, err, asm = getcommands(context, chan, asm)
-						if err then return context, err end
-					end
-				end
-
-				return context, nil, asm
-			end
-
-			if context.audiotype == "music" then
-				context,err,asm = getchannel(context, context.config.driver.channels)
-				if err then return context, err end
-				table.insert(context.assemblies, asm)
-			elseif context.audiotype == "sound" then
-				context,err,asm = getcommands(context, line)
-				if err then return context, err end
-				table.insert(context.assemblies, asm)
-			end
-
-			return context
-		end --capture_channels
-
-		context,err = capture_title(context, line)
-		if err then return context,err end
-		context,err = capture_composer(context, line)
-		if err then return context,err end
-		context,err = capture_envelopes(context, line)
-		if err then return context,err end
-		context,err = capture_channels(context, line)
-		if err then return context,err end
-		
-		return context
-	end --doline()
-
-	-----------------------------------------------------------------------------
-	-- Cycle through all the lines
-	-----------------------------------------------------------------------------
-	local function dolines(context)
-		for line in string.gmatch(context.input, "(.+)\n") do
-			context, err = doline(context, line)
-			if err then return context, err end
 		end
 
 		return context
@@ -734,10 +586,8 @@ local function translate(context)
 		table.insert(context.assemblies, asm)
 	end
 
-	context,err = dolines(context)
-	if err then return context,err end
-	context,err = output_assembly(context)
-	if err then return context,err end
+	validate_input(context)
+	output_assembly(context)
 
 	return context
 end --translate()
@@ -810,7 +660,8 @@ local function cli()
 		for i,v in pairs(arg) do
 			if v == "-p" then
 				-- Pipe mode!
-				context.input = io.read("*all")
+				context.input = load(io.read("*all"))
+				context.input = context.input()
 			elseif v == "-o" then
 				if arg[i+1] then
 					context.outfile, err = io.open(arg[i+1], "w")
@@ -825,8 +676,9 @@ local function cli()
 					if f == nil then
 						return context, "Could not open input file '"..arg[1].."'. Expected input file as first argument.\n"
 					end
-					context.input = f:read("*all")
+					context.input = load(f:read("*all"))
 					f:close()
+					context.input = context.input()
 				end
 			end
 		end
@@ -838,29 +690,11 @@ local function cli()
 	-- Now to the meat of the function
 	-----------------------------------------------------------------------------
 	context = create_context()
-
-	context,err = checkparams(context)
-	if err then
-		io.stderr:write(err.."\n")
-		goto on_error
-	end
-
-	context,err = readinput(context)
-	if err then
-		io.stderr:write(err.."\n")
-		goto on_error
-	end
-
-	context,err = translate(context)
-	if err then
-		io.stderr:write(err.."\n")
-		goto on_error
-	else
-		context.outfile:write(context.output)
-	end
-
-	::on_error::
-	if not outfile == io.stdout then context.outfile:close() end
+	context:checkparams()
+	context:readinput()
+	context:translate()
+	context.outfile:write(context.output)
+	if not context.outfile == io.stdout then context.outfile:close() end
 end
 
 
