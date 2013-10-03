@@ -1,5 +1,6 @@
 #! /usr/local/bin/lua
-
+require("os")
+require("math")
 
 
 -----------------------------------------------------------------------------
@@ -529,36 +530,72 @@ end
 -----------------------------------------------------------------------------
 local function translate(context)
 	-----------------------------------------------------------------------------
+	-- Initialize translation
+	-----------------------------------------------------------------------------
+	local function init_translation(context)
+		-- Context should be a table with some configuration
+		if context == nil then context = create_context() end
+
+		-- Create a module name for this assembly from the title, if possible.
+		local asm = context.config.asm.assembly()
+		table.insert(context.assemblies, asm)
+
+		if type(context.input) == "table" then
+			if type(context.input.title) == "string" then
+				local s,_ = string.gsub(context.input.title, "%s+", "_")
+				-- TODO: Delete all punctuation.
+				asm:add_label(s)
+			end
+		else
+			-- No title? Go with "fammlNNNNNNN"
+			math.randomseed(os.time())
+			asm:add_label("famml"..tostring(math.random(0,1000000)))
+		end
+
+		return context
+	end -- init_translation()
+
+	-----------------------------------------------------------------------------
 	-- Validate and process the input as a Lua table with proper members
 	-----------------------------------------------------------------------------
 	local function validate_input(context)
+		local function capture_commands(context, commands)
+		end
+
 		assert(type(context) == "table", "context should be a table.")
 		assert(type(context.input) == "table", "context.input should be a table.")
 
 		if context.input.title then
-			assert(type(context.input.title) == "string", "context.input.title should be a string.")
+			assert(type(context.input.title) == "string", "title should be a string.")
 		end
 
 		if context.input.composer then
-			assert(type(context.input.composer) == "string", "context.input.composer should be a string.")
+			assert(type(context.input.composer) == "string", "composer should be a string.")
 		end
 
 		if context.input.programmer then
-			assert(type(context.input.programmer) == "string", "context.input.programmer should be a string.")
+			assert(type(context.input.programmer) == "string", "programmer should be a string.")
 		end
 
 		if context.input.channels then
-			assert(type(context.input.channels) == "table", "context.input.channels should be a table.")
+			assert(type(context.input.instruments) == "table", "instruments should be a table.")
+			for k,v in pairs(context.input.instruments) do
+				-- TODO: Validate instrument data
+			end
+
+			assert(type(context.input.channels) == "table", "channels should be a table.")
 			for k,v in pairs(context.input.channels) do
 				if v.octave then
-					assert(type(v.octave) == "number", "channel.octave should be a number.")
+					assert(type(v.octave) == "number", "octave should be a number.")
 					-- TODO: Shouldn't octave be validated by config?
 				elseif v.notelen then
-					assert(type(v.notelen) == "number", "channel.notelen should be a number.")
+					assert(type(v.notelen) == "number", "notelen should be a number.")
 					-- TODO: Shouldn't notelen be validated by config?
+				elseif v.instrument then
+					assert(type(v.instrument) == "number", "instrument should be a number.")
 				elseif v.commands then
-					assert(type(v.commands) == "string", "channel.commands should be a string.")
-					-- TODO: commands should definitely be captured here
+					assert(type(v.commands) == "string", "commands should be a string.")
+					capture_commands(context, v.commands)
 				end
 			end
 		end
@@ -567,7 +604,7 @@ local function translate(context)
 	end
 
 	-----------------------------------------------------------------------------
-	-- Translate context to assembly
+	-- Write assembly to output string
 	-----------------------------------------------------------------------------
 	local function output_assembly(context)
 		for k,asm in pairs(context.assemblies) do
@@ -577,15 +614,7 @@ local function translate(context)
 		return context
 	end --output_assembly()
 
-	-- Context should be a table with some configuration
-	if context == nil then context = create_context() end
-
-	do
-		local asm = context.config.asm.assembly()
-		asm:add_label("famml"..tostring(math.random(0,1000)))
-		table.insert(context.assemblies, asm)
-	end
-
+	context = init_translation(context)
 	validate_input(context)
 	output_assembly(context)
 
@@ -597,20 +626,11 @@ end --translate()
 local function create_context()
 	return {
 		config = config_ca65_famitone(),
-		input = "",
+		input = {},
 		output = "",
 		outfile = io.stdout,
-		audiotype = "music",
-		composer = "",
-		title = "",
 		translate = translate,
-		envelopes = {},
 		assemblies = {},
-		instrument = 0,
-		notelen = 0,
-		octave = 1,
-		volume = 0,
-		volenv = 0,
 	}
 end
 
@@ -664,18 +684,14 @@ local function cli()
 				context.input = context.input()
 			elseif v == "-o" then
 				if arg[i+1] then
-					context.outfile, err = io.open(arg[i+1], "w")
-					if output == nil then
-						return context, "Could not open output file '"..arg[i+1].."'\n"
-					end
+					context.outfile = io.open(arg[i+1], "w")
+					assert(context.outfile, "Could not open output file '"..arg[i+1].."'")
 				end
 			else
 				-- All other options are checked. If this far, then arg[1] is input file.
 				if i == 1 then
 					local f = io.open(arg[1])
-					if f == nil then
-						return context, "Could not open input file '"..arg[1].."'. Expected input file as first argument.\n"
-					end
+					assert(f,"Could not open input file '"..arg[1].."'. Expected input file as first argument.")
 					context.input = load(f:read("*all"))
 					f:close()
 					context.input = context.input()
@@ -690,8 +706,8 @@ local function cli()
 	-- Now to the meat of the function
 	-----------------------------------------------------------------------------
 	context = create_context()
-	context:checkparams()
-	context:readinput()
+	checkparams(context)
+	readinput(context)
 	context:translate()
 	context.outfile:write(context.output)
 	if not context.outfile == io.stdout then context.outfile:close() end
