@@ -559,8 +559,38 @@ local function translate(context)
 	-- Validate and process the input as a Lua table with proper members
 	-----------------------------------------------------------------------------
 	local function validate_input(context)
-		local function capture_commands(context, commands)
-		end
+		local function capture_commands(context, channel)
+			local function docommand(context, command)
+				print(command)
+				local asm = context.config.asm.assembly()
+				local notes = {c=0, d=2, e=4, f=5, g=7, a=9, b=11}
+				for note in string.gmatch(command, "[abcdefg]") do
+					n = notes[note]
+					if n == 0 and channel.octave > 1 then
+						n = (12 * channel.octave) - 1
+					else
+						n = n * channel.octave
+					end
+					asm:place_byte(n)
+				end
+
+				table.insert(context.assemblies, asm)
+			end
+
+			local function getcommands(context, channel)
+				for command in string.gmatch(channel.commands, "(@*>*<*[ivabcdefg]%d*>*<*%.*)") do
+					docommand(context, command, asm)
+				end
+			end
+
+			if context.input.audiotype == "music" then
+				for k,v in pairs(context.input.channels) do
+					getcommands(context, v)
+				end
+			elseif context.input.audiotype == "sound" then
+				getcommands(context, context.input.channels[1])
+			end
+		end -- capture_commands()
 
 		assert(type(context) == "table", "context should be a table.")
 		assert(type(context.input) == "table", "context.input should be a table.")
@@ -577,31 +607,52 @@ local function translate(context)
 			assert(type(context.input.programmer) == "string", "programmer should be a string.")
 		end
 
+		if context.input.audiotype then
+			local atype = context.input.audiotype
+			assert(atype == "music" or atype == "sound", "audiotype should be \"music\" or \"sound\".")
+		else
+			context.input.audiotype = "music"
+		end
+
 		if context.input.channels then
-			assert(type(context.input.instruments) == "table", "instruments should be a table.")
-			for k,v in pairs(context.input.instruments) do
-				-- TODO: Validate instrument data
+			assert(type(context.input.channels) == "table", "channels should be a table.")
+
+			local function validate_channel(key, channel)
+				assert(type(channel) == "table", "channel '"..tostring(key).."' should be a table.")
+
+				if channel.octave then
+					assert(type(channel.octave) == "number", "octave should be a number.")
+					-- TODO: Shouldn't octave be validated by config?
+				else
+					channel.octave = 1
+				end
+
+				if channel.notelen then
+					assert(type(channel.notelen) == "number", "notelen should be a number.")
+					-- TODO: Shouldn't notelen be validated by config?
+				else
+					channel.notelen = 1
+				end
+
+				if channel.instrument then
+					assert(type(channel.instrument) == "number", "instrument should be a number.")
+				else
+					channel.instrument = 1
+				end
+
+				if channel.commands then
+					assert(type(channel.commands) == "string", "commands should be a string.")
+					capture_commands(context, channel)
+				end
 			end
 
-			assert(type(context.input.channels) == "table", "channels should be a table.")
 			for k,v in pairs(context.input.channels) do
-				if v.octave then
-					assert(type(v.octave) == "number", "octave should be a number.")
-					-- TODO: Shouldn't octave be validated by config?
-				elseif v.notelen then
-					assert(type(v.notelen) == "number", "notelen should be a number.")
-					-- TODO: Shouldn't notelen be validated by config?
-				elseif v.instrument then
-					assert(type(v.instrument) == "number", "instrument should be a number.")
-				elseif v.commands then
-					assert(type(v.commands) == "string", "commands should be a string.")
-					capture_commands(context, v.commands)
-				end
+				validate_channel(k,v)
 			end
 		end
 
 		return context
-	end
+	end -- validate_input()
 
 	-----------------------------------------------------------------------------
 	-- Write assembly to output string
