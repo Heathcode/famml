@@ -242,10 +242,17 @@
 -- 
 -- @chn0:
 -- @chn0_0:
+-- 	; $47 = instrument #7
+-- 	; $18 = B, second octave
+-- 	; $80 = empty row
+-- 	; $1a = C#, third octave
+-- 	; $8a = 10 empty rows
 -- 	.byte $47,$18,$80,$18,$80,$1a,$8a
 -- @chn0_loop:
 -- @chn0_1:
+-- 	; $8f = 15 empty rows
 -- 	.byte $8f
+-- 	; $fe = end
 -- 	.byte $fe
 -- 	.word @chn0_loop
 -- 
@@ -366,7 +373,7 @@ local function config_ca65_famitone()
 	-- Returns an interface for adding to and writing the assembly output
 	-----------------------------------------------------------------------------
 	local function asm_assembly()
-		return {
+		local asm = {
 			__code = {},
 			__code_size = 0,
 
@@ -374,8 +381,12 @@ local function config_ca65_famitone()
 			-- asm:add_cheap_label(name)
 			-----------------------------------------------------------------------------
 			add_cheap_label = function(asm, name)
-				clabel = asm.__code[#asm.__code].clabel
-				clabel = asm_clabel(name).."\n"..clabel
+				local clabel = asm.__code[#asm.__code].clabel
+				if string.len(clabel) > 0 then
+					clabel = asm_clabel(name)
+				else
+					clabel = asm_clabel(name).."\n"..clabel
+				end
 				asm.__code[#asm.__code].clabel = clabel
 			end,
 
@@ -390,8 +401,12 @@ local function config_ca65_famitone()
 			-- asm:add_label(name)
 			-----------------------------------------------------------------------------
 			add_label = function(asm, name)
-				label = asm.__code[#asm.__code].label
-				label = asm_label(name).."\n"..label
+				local label = asm.__code[#asm.__code].label
+				if string.len(label) > 0 then
+					label = asm_label(name).."\n"..label
+				else
+					label = asm_label(name)
+				end
 				asm.__code[#asm.__code].label = label
 			end,
 
@@ -411,12 +426,20 @@ local function config_ca65_famitone()
 				local line = asm.__code[#asm.__code]
 				if line.command == "" then
 					line.command = asm_byte
-					line.args = "$"..string.format("%x",tonumber(n,16))
+					if type(n) == "number" then
+						line.args = line.args.."$"..string.format("%x",n)
+					elseif type(n) == "string" then
+						line.args = line.args.."$"..n
+					end
 					goto code_size
 				elseif line.command == asm_byte then
-					line.args = line.args..", $"..string.format("%x",tonumber(n,16))
+					if type(n) == "number" then
+						line.args = line.args..", $"..string.format("%x",n)
+					elseif type(n) == "string" then
+						line.args = line.args..", $"..n
+					end
 					goto code_size
-				elseif not line.command == asm_byte then
+				else
 					asm:add_line()
 					return asm:place_byte(n)
 				end
@@ -442,21 +465,28 @@ local function config_ca65_famitone()
 			-- Returns a string with all the lines of code, ready to print.
 			-----------------------------------------------------------------------------
 			write = function(asm)
-				s = ""
-
+				local s = ""
 				for k,v in pairs(asm.__code) do
-					s = s..v.label
-					s = s.." "..v.clabel
-					s = s.." "..v.command
-					s = s.." "..v.args
-					s = s.." "..v.comment
-					s = s.."\n"
-				end
+					local list = {v.label, v.clabel, v.command, v.args, v.comment}
+					for k,v in pairs(list) do
+						if string.len(v) > 0 then
+							s = s..v
+							if k == 3 or k == 4 then s = s.."\t" end
+						end
+					end
 
+					s = s .. "\n"
+				end
 				return s
 			end,
-		}
-	end
+
+			set_instrument = function(asm, n)
+				asm:place_byte(n + 64)
+			end,
+		} --asm = { stuff }
+		asm:add_line()
+		return asm
+	end --asm_assembly()
 
 	return {
 		asm = {
@@ -471,7 +501,8 @@ local function config_ca65_famitone()
 		driver = {
 			-----------------------------------------------------------------------------
 			-- check_envelope(asm)
-			-- Validate this code before calling asm:write() 				-----------------------------------------------------------------------------
+			-- Validate this code before calling asm:write()
+ 			-----------------------------------------------------------------------------
 			check_envelope = function(assembly)
 				if assembly:size() > 255 then
 					return "FamiTone allows envelopes up to 255 bytes."
@@ -496,205 +527,183 @@ end
 
 
 -----------------------------------------------------------------------------
--- translate(context)
--- Reads from context.input and writes to context.output
--- Returns context,err
+-- create_context()
+-- A context has a configuration and a method to translate input to assembly code.
 -----------------------------------------------------------------------------
-local function translate(context)
-	-----------------------------------------------------------------------------
-	-- doline(context, line)
-	-- Parse a line
-	-----------------------------------------------------------------------------
-	local function doline(context, line)
-		-----------------------------------------------------------------------------
-		-- Capture the title
-		-----------------------------------------------------------------------------
-		local function capture_title(context, line)
-			for title in string.gmatch(line, "#TITLE%s+(.+)\n") do
-				if context.title == nil then
-					context.title = title
-				else
-					return context, "Please use only one title for each file."
-				end
-			end
+local function create_context(config)
+	-- TODO: Validate config
 
-			return context
-		end
-
-		-----------------------------------------------------------------------------
-		-- Capture the composer
-		-----------------------------------------------------------------------------
-		local function capture_composer(context, line)
-			for composer in string.gmatch(line, "#COMPOSER%s+(.+)\n") do
-				if context.composer == nil then
-					context.composer = composer
-				else
-					return context, "To credit more than one composer, please put them together on one line.\nExample:\n\t#COMPOSER John, Bill\nBut don't do this:\n\t#COMPOSER John #COMPOSER Bill"
-				end
-			end
-
-			return context
-		end
-
-		-----------------------------------------------------------------------------
-		-- Capture envelopes
-		-----------------------------------------------------------------------------
-		local function capture_envelopes(context, line)
-			local function getenvelarray(v)
-				n = {}
-				for i in string.gmatch(v, "(%d+)") do
-					table.insert(n, i)
-				end
-				return n
-			end
-
-			for k,v in string.gmatch(line, "@(v%d)%s*=%s*(%b{})") do
-				if v then
-					if context.envelopes == nil then
-						context.envelopes = {}
-						context.envelopes[k] = getenvelarray(v)
-					elseif context.envelopes[k] == nil then
-						context.envelopes[k] = getenvelarray(v)
-					else
-						return context, "Envelopes must be constant."
-					end
-				end
-			end
-
-			return context
-		end
-
-		-----------------------------------------------------------------------------
-		-- Capture the audio commands
-		-----------------------------------------------------------------------------
-		local function capture_commands(context, line)
-			local function docommand(command, command)
-				for octave in string.gmatch(command, "o(%d)") do
-					-- do something?
-				end
-
-				return context
-			end
-
-			local function getcommands(context, channel)
-				for command in string.gmatch(channel, "(@*>*<*[lovabcdefg]%d*>*<*%.*)") do
-					err = docommand(context, command)
-					if err then return context, err end
-				end
-
-				return context
-			end
-
-			local function getchannel(context, abcde)
-				for c in string.gmatch(abcde, "[ABCDE+]") do
-					for chan in string.gmatch(line, c.."(.*)") do
-						err = getcommands(context, chan)
-						if err then return context, err end
-					end
-				end
-
-				return context
-			end
-
-			if context.audiotype == "music" then
-				context,err = getchannel(context, "ABCDE")
-				if err then return context, err end
-			elseif context.audiotype == "sound" then
-				context,err = getcommands(context, line)
-				if err then return context, err end
-			end
-
-			return context
-		end --capture_commands
-
-		context,err = capture_title(context, line)
-		if err then return context,err end
-		context,err = capture_composer(context, line)
-		if err then return context,err end
-		context,err = capture_envelopes(context, line)
-		if err then return context,err end
-		context,err = capture_commands(context, line)
-		if err then return context,err end
-		
-		return context
-	end --doline()
-
-	-----------------------------------------------------------------------------
-	-- Cycle through all the lines
-	-----------------------------------------------------------------------------
-	local function dolines(context)
-		for line in string.gmatch(context.input, "(.+)\n") do
-			context, err = doline(context, line)
-			if err then return context, err end
-		end
-
-		return context
-	end
-
-	-----------------------------------------------------------------------------
-	-- Translate context to assembly
-	-----------------------------------------------------------------------------
-	local function output_assembly(context)
-		local function translate_envelopes(context)
-			if context.envelopes then
-				for key,envelope in pairs(context.envelopes) do
-					local asm = context.config.asm.assembly()
-					asm:add_line()
-					asm:add_cheap_label(key)
-
-					for i,b in pairs(envelope) do
-						asm:place_byte(context.config.driver.envelope_entry(b))
-					end
-
-					asm:add_line()
-					asm:place_byte(context.config.driver.envelope_end())
-					err = context.config.driver.check_envelope(asm)
-					if err then return context,err end
-					context.output = context.output..asm:write()
-				end
-			end
-
-			return context
-		end --translate_envelopes()
-
-		context,err = translate_envelopes(context)
-		if err then return context,err end
-
-		return context
-	end --output_assembly()
-
-	-- Context should be a table with some configuration
-	if context == nil then context = create_context() end
-
-	-- output and input are strings
-	if context.output == nil then context.output = "" end
-	if context.input == nil then context.input = "" end
-
-	-- By default, set audiotype to music
-	if context.audiotype == nil then context.audiotype = "music" end
-
-	context,err = dolines(context)
-	if err then return context,err end
-	context,err = output_assembly(context)
-	if err then return context,err end
-
-	return context
-end --translate()
-
-
-
-local function create_context()
 	return {
-		config = config_ca65_famitone(),
-		input = "",
+		config = config,
+		input = {},
 		output = "",
 		outfile = io.stdout,
-		audiotype = "music",
-		composer = "",
-		title = "",
-		translate = translate
+		assemblies = {},
+
+		-----------------------------------------------------------------------------
+		-- translate(context)
+		-- Reads from context.input and writes to context.output
+		-- Returns context,err
+		-----------------------------------------------------------------------------
+		translate = function(context)
+			-----------------------------------------------------------------------------
+			-- Validate and process the input as a Lua table with proper members
+			-----------------------------------------------------------------------------
+			local function validate_input(context)
+				-----------------------------------------------------------------------------
+				-- Capture commands from a channel
+				-----------------------------------------------------------------------------
+				local function capture_commands(context, channel)
+					local function docommand(context, command)
+						local asm = context.config.asm.assembly()
+						local notes = {c=0, d=2, e=4, f=5, g=7, a=9, b=11}
+						local n = 0
+
+						for note in string.gmatch(command, "[cdefgab]") do
+							n = 12 * channel.octave + notes[note]
+						end
+
+						for sharp in string.gmatch(command, "[cdfga]#") do
+							n = n+1
+						end
+
+						for sharperror in string.gmatch(command, "[be]#") do
+							error("There is no B# or E#.")
+						end
+
+						asm:place_byte(n)
+						table.insert(context.assemblies, asm)
+					end
+
+					local function getcommands(context, channel)
+						local asm = context.config.asm.assembly()
+						asm:set_instrument(channel.instrument)
+						table.insert(context.assemblies, asm)
+
+						capture = "(@*>*<*[ivabcdefg]#*%d*>*<*%.*)"
+						for command in string.gmatch(channel.commands, capture) do
+							docommand(context, command, asm)
+						end
+					end
+
+					if context.input.audiotype == "music" then
+						for k,v in pairs(context.input.channels) do
+							getcommands(context, v)
+						end
+					elseif context.input.audiotype == "sound" then
+						getcommands(context, context.input.channels[1])
+					end
+				end -- capture_commands()
+
+				assert(type(context) == "table", "context should be a table.")
+				assert(type(context.input) == "table", "context.input should be a table.")
+
+				if context.input.title then
+					local err = "title should be a string."
+					assert(type(context.input.title) == "string", err)
+
+					-- Add a label for this assembly module based on title
+					local asm = context.config.asm.assembly()
+					local s,_ = string.gsub(context.input.title, "%s+", "_")
+					-- TODO: Delete all punctuation from s
+					asm:add_label(s)
+					table.insert(context.assemblies, asm)
+				else
+					-- No title? Go with "fammlNNNNNNN"
+					local asm = context.config.asm.assembly()
+					math.randomseed(os.time())
+					asm:add_label("famml"..tostring(math.random(0,1000000)))
+					table.insert(context.assemblies, asm)
+				end
+
+				if context.input.composer then
+					local err = "composer should be a string."
+					assert(type(context.input.composer) == "string", err)
+				end
+
+				if context.input.programmer then
+					local err = "programmer should be a string."
+					assert(type(context.input.programmer) == "string", err)
+				end
+
+				if context.input.audiotype then
+					local atype = context.input.audiotype
+					local err = "audiotype should be \"music\" or \"sound\"."
+					assert(atype == "music" or atype == "sound", err)
+				else
+					context.input.audiotype = "music"
+				end
+
+				if context.input.channels then
+					local err = "channels should be a table."
+					assert(type(context.input.channels) == "table", err)
+
+					-----------------------------------------------------------------------------
+					-- validate_channel()
+					-----------------------------------------------------------------------------
+					local function validate_channel(key, channel)
+						local err = "channel '"..tostring(key).."' should be a table."
+						assert(type(channel) == "table", err)
+
+						if channel.octave then
+							local err = "octave should be a number."
+							assert(type(channel.octave) == "number", err)
+							-- TODO: Shouldn't octave be validated by config?
+							local err = "octave should be >= 0."
+							assert(channel.octave >= 0, err)
+						else
+							channel.octave = 4
+						end
+
+						if channel.notelen then
+							local err = "notelen should be a number."
+							assert(type(channel.notelen) == "number", err)
+							-- TODO: Shouldn't notelen be validated by config?
+						else
+							channel.notelen = 4
+						end
+
+						if channel.instrument then
+							local err = "instrument should be a number."
+							assert(type(channel.instrument) == "number", err)
+						else
+							channel.instrument = 1
+						end
+
+						if channel.commands then
+							local err = "commands should be a string."
+							assert(type(channel.commands) == "string", err)
+							channel.commands = string.lower(channel.commands)
+							capture_commands(context, channel)
+						end
+					end --validate_channel()
+
+					for k,v in pairs(context.input.channels) do
+						validate_channel(k,v)
+					end
+				end
+
+				return context
+			end -- validate_input()
+
+			-----------------------------------------------------------------------------
+			-- Write assembly to output string
+			-----------------------------------------------------------------------------
+			local function output_assembly(context)
+				for k,asm in pairs(context.assemblies) do
+					context.output = context.output..asm:write()
+				end
+
+				return context
+			end --output_assembly()
+
+			validate_input(context)
+			output_assembly(context)
+
+			return context
+		end, --translate()
 	}
-end
+end --create_context()
 
 
 
@@ -742,23 +751,21 @@ local function cli()
 		for i,v in pairs(arg) do
 			if v == "-p" then
 				-- Pipe mode!
-				context.input = io.read("*all")
+				context.input = load(io.read("*all"))
+				context.input = context.input()
 			elseif v == "-o" then
 				if arg[i+1] then
-					context.outfile, err = io.open(arg[i+1], "w")
-					if output == nil then
-						return context, "Could not open output file '"..arg[i+1].."'\n"
-					end
+					context.outfile = io.open(arg[i+1], "w")
+					assert(context.outfile, "Could not open output file '"..arg[i+1].."'")
 				end
 			else
 				-- All other options are checked. If this far, then arg[1] is input file.
 				if i == 1 then
 					local f = io.open(arg[1])
-					if f == nil then
-						return context, "Could not open input file '"..arg[1].."'. Expected input file as first argument.\n"
-					end
-					context.input = f:read("*all")
+					assert(f,"Could not open input file '"..arg[1].."'. Expected input file as first argument.")
+					context.input = load(f:read("*all"))
 					f:close()
+					context.input = context.input()
 				end
 			end
 		end
@@ -769,30 +776,12 @@ local function cli()
 	-----------------------------------------------------------------------------
 	-- Now to the meat of the function
 	-----------------------------------------------------------------------------
-	context = create_context()
-
-	context,err = checkparams(context)
-	if err then
-		io.stderr:write(err.."\n")
-		goto on_error
-	end
-
-	context,err = readinput(context)
-	if err then
-		io.stderr:write(err.."\n")
-		goto on_error
-	end
-
-	context,err = translate(context)
-	if err then
-		io.stderr:write(err.."\n")
-		goto on_error
-	else
-		context.outfile:write(context.output)
-	end
-
-	::on_error::
-	if not outfile == io.stdout then context.outfile:close() end
+	context = create_context(config_ca65_famitone())
+	checkparams(context)
+	readinput(context)
+	context:translate()
+	context.outfile:write(context.output)
+	if not context.outfile == io.stdout then context.outfile:close() end
 end
 
 
@@ -811,3 +800,4 @@ elseif #arg <= 0 then
 else
 	return cli()
 end
+
