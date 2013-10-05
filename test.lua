@@ -7,7 +7,7 @@ return {
 		pulse1 = {
 			octave = 4,
 			notelen = 4,
-			commands = "A# FFcd",
+			commands = "A# FFcd", --should be case insensitive
 		}
 	},
 }
