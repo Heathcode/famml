@@ -1,6 +1,5 @@
 #! /usr/local/bin/lua
-require("os")
-require("math")
+
 
 
 -----------------------------------------------------------------------------
@@ -480,6 +479,10 @@ local function config_ca65_famitone()
 				end
 				return s
 			end,
+
+			set_instrument = function(asm, n)
+				asm:place_byte(n + 64)
+			end,
 		} --asm = { stuff }
 		asm:add_line()
 		return asm
@@ -524,166 +527,183 @@ end
 
 
 -----------------------------------------------------------------------------
--- translate(context)
--- Reads from context.input and writes to context.output
--- Returns context,err
+-- create_context()
+-- A context has a configuration and a method to translate input to assembly code.
 -----------------------------------------------------------------------------
-local function translate(context)
-	-----------------------------------------------------------------------------
-	-- Initialize translation
-	-----------------------------------------------------------------------------
-	local function init_translation(context)
-		-- Context should be a table with some configuration
-		if context == nil then context = create_context() end
+local function create_context(config)
+	-- TODO: Validate config
 
-		-- Create a module name for this assembly from the title, if possible.
-		local asm = context.config.asm.assembly()
-		table.insert(context.assemblies, asm)
-
-		if type(context.input) == "table" then
-			if type(context.input.title) == "string" then
-				local s,_ = string.gsub(context.input.title, "%s+", "_")
-				-- TODO: Delete all punctuation.
-				asm:add_label(s)
-			end
-		else
-			-- No title? Go with "fammlNNNNNNN"
-			math.randomseed(os.time())
-			asm:add_label("famml"..tostring(math.random(0,1000000)))
-		end
-
-		return context
-	end -- init_translation()
-
-	-----------------------------------------------------------------------------
-	-- Validate and process the input as a Lua table with proper members
-	-----------------------------------------------------------------------------
-	local function validate_input(context)
-		local function capture_commands(context, channel)
-			local function docommand(context, command)
-				print(command)
-				local asm = context.config.asm.assembly()
-				local notes = {c=0, d=2, e=4, f=5, g=7, a=9, b=11}
-				for note in string.gmatch(command, "[abcdefg]") do
-					n = notes[note]
-					if n == 0 and channel.octave > 1 then
-						n = (12 * channel.octave) - 1
-					else
-						n = n * channel.octave
-					end
-					asm:place_byte(n)
-				end
-
-				table.insert(context.assemblies, asm)
-			end
-
-			local function getcommands(context, channel)
-				for command in string.gmatch(channel.commands, "(@*>*<*[ivabcdefg]%d*>*<*%.*)") do
-					docommand(context, command, asm)
-				end
-			end
-
-			if context.input.audiotype == "music" then
-				for k,v in pairs(context.input.channels) do
-					getcommands(context, v)
-				end
-			elseif context.input.audiotype == "sound" then
-				getcommands(context, context.input.channels[1])
-			end
-		end -- capture_commands()
-
-		assert(type(context) == "table", "context should be a table.")
-		assert(type(context.input) == "table", "context.input should be a table.")
-
-		if context.input.title then
-			assert(type(context.input.title) == "string", "title should be a string.")
-		end
-
-		if context.input.composer then
-			assert(type(context.input.composer) == "string", "composer should be a string.")
-		end
-
-		if context.input.programmer then
-			assert(type(context.input.programmer) == "string", "programmer should be a string.")
-		end
-
-		if context.input.audiotype then
-			local atype = context.input.audiotype
-			assert(atype == "music" or atype == "sound", "audiotype should be \"music\" or \"sound\".")
-		else
-			context.input.audiotype = "music"
-		end
-
-		if context.input.channels then
-			assert(type(context.input.channels) == "table", "channels should be a table.")
-
-			local function validate_channel(key, channel)
-				assert(type(channel) == "table", "channel '"..tostring(key).."' should be a table.")
-
-				if channel.octave then
-					assert(type(channel.octave) == "number", "octave should be a number.")
-					-- TODO: Shouldn't octave be validated by config?
-				else
-					channel.octave = 1
-				end
-
-				if channel.notelen then
-					assert(type(channel.notelen) == "number", "notelen should be a number.")
-					-- TODO: Shouldn't notelen be validated by config?
-				else
-					channel.notelen = 1
-				end
-
-				if channel.instrument then
-					assert(type(channel.instrument) == "number", "instrument should be a number.")
-				else
-					channel.instrument = 1
-				end
-
-				if channel.commands then
-					assert(type(channel.commands) == "string", "commands should be a string.")
-					capture_commands(context, channel)
-				end
-			end
-
-			for k,v in pairs(context.input.channels) do
-				validate_channel(k,v)
-			end
-		end
-
-		return context
-	end -- validate_input()
-
-	-----------------------------------------------------------------------------
-	-- Write assembly to output string
-	-----------------------------------------------------------------------------
-	local function output_assembly(context)
-		for k,asm in pairs(context.assemblies) do
-			context.output = context.output..asm:write()
-		end
-
-		return context
-	end --output_assembly()
-
-	context = init_translation(context)
-	validate_input(context)
-	output_assembly(context)
-
-	return context
-end --translate()
-
-
-
-local function create_context()
 	return {
-		config = config_ca65_famitone(),
+		config = config,
 		input = {},
 		output = "",
 		outfile = io.stdout,
-		translate = translate,
 		assemblies = {},
+
+		-----------------------------------------------------------------------------
+		-- translate(context)
+		-- Reads from context.input and writes to context.output
+		-- Returns context,err
+		-----------------------------------------------------------------------------
+		translate = function(context)
+			-----------------------------------------------------------------------------
+			-- Validate and process the input as a Lua table with proper members
+			-----------------------------------------------------------------------------
+			local function validate_input(context)
+				-----------------------------------------------------------------------------
+				-- Capture commands from a channel
+				-----------------------------------------------------------------------------
+				local function capture_commands(context, channel)
+					local function docommand(context, command)
+						local asm = context.config.asm.assembly()
+						local notes = {c=0, d=2, e=4, f=5, g=7, a=9, b=11}
+						local n = 0
+
+						for note in string.gmatch(command, "[cdefgab]") do
+							n = 12 * channel.octave + notes[note]
+						end
+
+						for sharp in string.gmatch(command, "[cdfga]#") do
+							n = n+1
+						end
+
+						for sharperror in string.gmatch(command, "[be]#") do
+							error("There is no B# or E#.")
+						end
+
+						asm:place_byte(n)
+						table.insert(context.assemblies, asm)
+					end
+
+					local function getcommands(context, channel)
+						local asm = context.config.asm.assembly()
+						asm:set_instrument(channel.instrument)
+						table.insert(context.assemblies, asm)
+
+						capture = "(@*>*<*[ivabcdefg]#*%d*>*<*%.*)"
+						for command in string.gmatch(channel.commands, capture) do
+							docommand(context, command, asm)
+						end
+					end
+
+					if context.input.audiotype == "music" then
+						for k,v in pairs(context.input.channels) do
+							getcommands(context, v)
+						end
+					elseif context.input.audiotype == "sound" then
+						getcommands(context, context.input.channels[1])
+					end
+				end -- capture_commands()
+
+				assert(type(context) == "table", "context should be a table.")
+				assert(type(context.input) == "table", "context.input should be a table.")
+
+				if context.input.title then
+					local err = "title should be a string."
+					assert(type(context.input.title) == "string", err)
+
+					-- Add a label for this assembly module based on title
+					local asm = context.config.asm.assembly()
+					local s,_ = string.gsub(context.input.title, "%s+", "_")
+					-- TODO: Delete all punctuation from s
+					asm:add_label(s)
+					table.insert(context.assemblies, asm)
+				else
+					-- No title? Go with "fammlNNNNNNN"
+					local asm = context.config.asm.assembly()
+					math.randomseed(os.time())
+					asm:add_label("famml"..tostring(math.random(0,1000000)))
+					table.insert(context.assemblies, asm)
+				end
+
+				if context.input.composer then
+					local err = "composer should be a string."
+					assert(type(context.input.composer) == "string", err)
+				end
+
+				if context.input.programmer then
+					local err = "programmer should be a string."
+					assert(type(context.input.programmer) == "string", err)
+				end
+
+				if context.input.audiotype then
+					local atype = context.input.audiotype
+					local err = "audiotype should be \"music\" or \"sound\"."
+					assert(atype == "music" or atype == "sound", err)
+				else
+					context.input.audiotype = "music"
+				end
+
+				if context.input.channels then
+					local err = "channels should be a table."
+					assert(type(context.input.channels) == "table", err)
+
+					-----------------------------------------------------------------------------
+					-- validate_channel()
+					-----------------------------------------------------------------------------
+					local function validate_channel(key, channel)
+						local err = "channel '"..tostring(key).."' should be a table."
+						assert(type(channel) == "table", err)
+
+						if channel.octave then
+							local err = "octave should be a number."
+							assert(type(channel.octave) == "number", err)
+							-- TODO: Shouldn't octave be validated by config?
+							local err = "octave should be >= 0."
+							assert(channel.octave >= 0, err)
+						else
+							channel.octave = 4
+						end
+
+						if channel.notelen then
+							local err = "notelen should be a number."
+							assert(type(channel.notelen) == "number", err)
+							-- TODO: Shouldn't notelen be validated by config?
+						else
+							channel.notelen = 4
+						end
+
+						if channel.instrument then
+							local err = "instrument should be a number."
+							assert(type(channel.instrument) == "number", err)
+						else
+							channel.instrument = 1
+						end
+
+						if channel.commands then
+							local err = "commands should be a string."
+							assert(type(channel.commands) == "string", err)
+							channel.commands = string.lower(channel.commands)
+							capture_commands(context, channel)
+						end
+					end --validate_channel()
+
+					for k,v in pairs(context.input.channels) do
+						validate_channel(k,v)
+					end
+				end
+
+				return context
+			end -- validate_input()
+
+			-----------------------------------------------------------------------------
+			-- Write assembly to output string
+			-----------------------------------------------------------------------------
+			local function output_assembly(context)
+				for k,asm in pairs(context.assemblies) do
+					context.output = context.output..asm:write()
+				end
+
+				return context
+			end --output_assembly()
+
+			validate_input(context)
+			output_assembly(context)
+
+			return context
+		end, --translate()
 	}
-end
+end --create_context()
 
 
 
@@ -756,7 +776,7 @@ local function cli()
 	-----------------------------------------------------------------------------
 	-- Now to the meat of the function
 	-----------------------------------------------------------------------------
-	context = create_context()
+	context = create_context(config_ca65_famitone())
 	checkparams(context)
 	readinput(context)
 	context:translate()
