@@ -237,60 +237,60 @@
 -----------------------------------------------------------------------------
 -- For reference, the following is copied from the level music for Shiru's sample NES game, Chase.
 -- mus_level_module:
--- 	.word @chn0,@chn1,@chn2,@chn3,@chn4,music_instruments
--- 	.byte $03
+--    .word @chn0,@chn1,@chn2,@chn3,@chn4,music_instruments
+--    .byte $03
 -- 
 -- @chn0:
 -- @chn0_0:
--- 	; $47 = instrument #7
--- 	; $18 = B, second octave
--- 	; $80 = empty row
--- 	; $1a = C#, third octave
--- 	; $8a = 10 empty rows
--- 	.byte $47,$18,$80,$18,$80,$1a,$8a
+--    ; $47 = instrument #7
+--    ; $18 = B, second octave
+--    ; $80 = empty row
+--    ; $1a = C#, third octave
+--    ; $8a = 10 empty rows
+--    .byte $47,$18,$80,$18,$80,$1a,$8a
 -- @chn0_loop:
 -- @chn0_1:
--- 	; $8f = 15 empty rows
--- 	.byte $8f
--- 	; $fe = end
--- 	.byte $fe
--- 	.word @chn0_loop
+--    ; $8f = 15 empty rows
+--    .byte $8f
+--    ; $fe = end
+--    .byte $fe
+--    .word @chn0_loop
 -- 
 -- @chn1:
 -- @chn1_0:
--- 	.byte $48,$18,$80,$18,$80,$1a,$8a
+--    .byte $48,$18,$80,$18,$80,$1a,$8a
 -- @chn1_loop:
 -- @chn1_1:
--- 	.byte $8f
--- 	.byte $fe
--- 	.word @chn1_loop
+--    .byte $8f
+--    .byte $fe
+--    .word @chn1_loop
 -- 
 -- @chn2:
 -- @chn2_0:
--- 	.byte $41,$18,$80,$18,$80,$49,$18,$41,$1a,$81,$3f,$86
+--    .byte $41,$18,$80,$18,$80,$49,$18,$41,$1a,$81,$3f,$86
 -- @chn2_loop:
 -- @chn2_1:
--- 	.byte $8f
--- 	.byte $fe
--- 	.word @chn2_loop
+--    .byte $8f
+--    .byte $fe
+--    .word @chn2_loop
 -- 
 -- @chn3:
 -- @chn3_0:
--- 	.byte $46,$0f,$80,$0f,$80,$49,$0b,$80,$42,$0f,$88
+--    .byte $46,$0f,$80,$0f,$80,$49,$0b,$80,$42,$0f,$88
 -- @chn3_loop:
 -- @chn3_1:
--- 	.byte $8f
--- 	.byte $fe
--- 	.word @chn3_loop
+--    .byte $8f
+--    .byte $fe
+--    .word @chn3_loop
 -- 
 -- @chn4:
 -- @chn4_0:
--- 	.byte $8f
+--    .byte $8f
 -- @chn4_loop:
 -- @chn4_1:
--- 	.byte $8f
--- 	.byte $fe
--- 	.word @chn4_loop
+--    .byte $8f
+--    .byte $fe
+--    .word @chn4_loop
 -----------------------------------------------------------------------------
 
 
@@ -298,53 +298,53 @@
 -----------------------------------------------------------------------------
 -- And finally, a sample sound effect from Shiru's game, Chase.
 -- sfx0:
--- 	.byte $00,$7f
--- 	.byte $01,$ab
--- 	.byte $02,$01
--- 	.byte $13
--- 	.byte $01,$3f
--- 	.byte $13
--- 	.byte $01,$1c
--- 	.byte $13
--- 	.byte $01,$d5
--- 	.byte $02,$00
--- 	.byte $13
--- 	.byte $01,$9f
--- 	.byte $13
--- 	.byte $01,$8e
--- 	.byte $13
--- 	.byte $00,$74
--- 	.byte $01,$ab
--- 	.byte $02,$01
--- 	.byte $13
--- 	.byte $01,$3f
--- 	.byte $13
--- 	.byte $01,$1c
--- 	.byte $13
--- 	.byte $01,$d5
--- 	.byte $02,$00
--- 	.byte $13
--- 	.byte $01,$9f
--- 	.byte $13
--- 	.byte $01,$8e
--- 	.byte $13
--- 	.byte $00,$71
--- 	.byte $01,$ab
--- 	.byte $02,$01
--- 	.byte $13
--- 	.byte $01,$3f
--- 	.byte $13
--- 	.byte $01,$1c
--- 	.byte $13
--- 	.byte $01,$d5
--- 	.byte $02,$00
--- 	.byte $13
--- 	.byte $01,$9f
--- 	.byte $13
--- 	.byte $01,$8e
--- 	.byte $13
--- 	.byte $00,$30
--- 	.byte $ff
+--    .byte $00,$7f
+--    .byte $01,$ab
+--    .byte $02,$01
+--    .byte $13
+--    .byte $01,$3f
+--    .byte $13
+--    .byte $01,$1c
+--    .byte $13
+--    .byte $01,$d5
+--    .byte $02,$00
+--    .byte $13
+--    .byte $01,$9f
+--    .byte $13
+--    .byte $01,$8e
+--    .byte $13
+--    .byte $00,$74
+--    .byte $01,$ab
+--    .byte $02,$01
+--    .byte $13
+--    .byte $01,$3f
+--    .byte $13
+--    .byte $01,$1c
+--    .byte $13
+--    .byte $01,$d5
+--    .byte $02,$00
+--    .byte $13
+--    .byte $01,$9f
+--    .byte $13
+--    .byte $01,$8e
+--    .byte $13
+--    .byte $00,$71
+--    .byte $01,$ab
+--    .byte $02,$01
+--    .byte $13
+--    .byte $01,$3f
+--    .byte $13
+--    .byte $01,$1c
+--    .byte $13
+--    .byte $01,$d5
+--    .byte $02,$00
+--    .byte $13
+--    .byte $01,$9f
+--    .byte $13
+--    .byte $01,$8e
+--    .byte $13
+--    .byte $00,$30
+--    .byte $ff
 -----------------------------------------------------------------------------
 
 
@@ -362,166 +362,166 @@
 -- Returns an interface for output to ca65 and FamiTone
 -----------------------------------------------------------------------------
 local function config_ca65_famitone()
-	local asm_comment="; "
-	local asm_byte="\t.byte "
-	local asm_word="\t.word "
-	local asm_label=function(name) return name..":" end
-	local asm_clabel=function(name) return "@"..name..":" end
+   local asm_comment="; "
+   local asm_byte="\t.byte "
+   local asm_word="\t.word "
+   local asm_label=function(name) return name..":" end
+   local asm_clabel=function(name) return "@"..name..":" end
 
-	-----------------------------------------------------------------------------
-	-- asm_assembly()
-	-- Returns an interface for adding to and writing the assembly output
-	-----------------------------------------------------------------------------
-	local function asm_assembly()
-		local asm = {
-			__code = {},
-			__code_size = 0,
+   -----------------------------------------------------------------------------
+   -- asm_assembly()
+   -- Returns an interface for adding to and writing the assembly output
+   -----------------------------------------------------------------------------
+   local function asm_assembly()
+      local asm = {
+         __code = {},
+         __code_size = 0,
 
-			-----------------------------------------------------------------------------
-			-- asm:add_cheap_label(name)
-			-----------------------------------------------------------------------------
-			add_cheap_label = function(asm, name)
-				local clabel = asm.__code[#asm.__code].clabel
-				if string.len(clabel) > 0 then
-					clabel = asm_clabel(name)
-				else
-					clabel = asm_clabel(name).."\n"..clabel
-				end
-				asm.__code[#asm.__code].clabel = clabel
-			end,
+         -----------------------------------------------------------------------------
+         -- asm:add_cheap_label(name)
+         -----------------------------------------------------------------------------
+         add_cheap_label = function(asm, name)
+            local clabel = asm.__code[#asm.__code].clabel
+            if string.len(clabel) > 0 then
+               clabel = asm_clabel(name)
+            else
+               clabel = asm_clabel(name).."\n"..clabel
+            end
+            asm.__code[#asm.__code].clabel = clabel
+         end,
 
-			-----------------------------------------------------------------------------
-			-- asm:add_comment(comment)
-			-----------------------------------------------------------------------------
-			add_comment = function(asm, comment)
-				asm.__code[#asm.__code].comment = asm_comment..comment
-			end,
+         -----------------------------------------------------------------------------
+         -- asm:add_comment(comment)
+         -----------------------------------------------------------------------------
+         add_comment = function(asm, comment)
+            asm.__code[#asm.__code].comment = asm_comment..comment
+         end,
 
-			-----------------------------------------------------------------------------
-			-- asm:add_label(name)
-			-----------------------------------------------------------------------------
-			add_label = function(asm, name)
-				local label = asm.__code[#asm.__code].label
-				if string.len(label) > 0 then
-					label = asm_label(name).."\n"..label
-				else
-					label = asm_label(name)
-				end
-				asm.__code[#asm.__code].label = label
-			end,
+         -----------------------------------------------------------------------------
+         -- asm:add_label(name)
+         -----------------------------------------------------------------------------
+         add_label = function(asm, name)
+            local label = asm.__code[#asm.__code].label
+            if string.len(label) > 0 then
+               label = asm_label(name).."\n"..label
+            else
+               label = asm_label(name)
+            end
+            asm.__code[#asm.__code].label = label
+         end,
 
-			-----------------------------------------------------------------------------
-			-- asm:add_line()
-			-----------------------------------------------------------------------------
-			add_line = function(asm)
-				row = {label="",clabel="",command="",args="",comment="",nargs=0,maxargs=10,}
-				table.insert(asm.__code, row)
-			end,
+         -----------------------------------------------------------------------------
+         -- asm:add_line()
+         -----------------------------------------------------------------------------
+         add_line = function(asm)
+            row = {label="",clabel="",command="",args="",comment="",nargs=0,maxargs=10,}
+            table.insert(asm.__code, row)
+         end,
 
-			-----------------------------------------------------------------------------
-			-- asm:place_byte(n)
-			-- Use the assembler's byte directive, such as .byte or db
-			-----------------------------------------------------------------------------
-			place_byte = function(asm, n)
-				local line = asm.__code[#asm.__code]
-				if line.command == "" then
-					line.command = asm_byte
-					if type(n) == "number" then
-						line.args = line.args.."$"..string.format("%x",n)
-					elseif type(n) == "string" then
-						line.args = line.args.."$"..n
-					end
-					goto code_size
-				elseif line.command == asm_byte then
-					if type(n) == "number" then
-						line.args = line.args..", $"..string.format("%x",n)
-					elseif type(n) == "string" then
-						line.args = line.args..", $"..n
-					end
-					goto code_size
-				else
-					asm:add_line()
-					return asm:place_byte(n)
-				end
-				::code_size::
-				asm.__code_size = asm.__code_size + 1
-				line.nargs = line.nargs+1
-				if line.nargs == line.maxargs then
-					asm:add_line()
-					line.nargs = 0
-				end
-			end,
+         -----------------------------------------------------------------------------
+         -- asm:place_byte(n)
+         -- Use the assembler's byte directive, such as .byte or db
+         -----------------------------------------------------------------------------
+         place_byte = function(asm, n)
+            local line = asm.__code[#asm.__code]
+            if line.command == "" then
+               line.command = asm_byte
+               if type(n) == "number" then
+                  line.args = line.args.."$"..string.format("%x",n)
+               elseif type(n) == "string" then
+                  line.args = line.args.."$"..n
+               end
+               goto code_size
+            elseif line.command == asm_byte then
+               if type(n) == "number" then
+                  line.args = line.args..", $"..string.format("%x",n)
+               elseif type(n) == "string" then
+                  line.args = line.args..", $"..n
+               end
+               goto code_size
+            else
+               asm:add_line()
+               return asm:place_byte(n)
+            end
+            ::code_size::
+            asm.__code_size = asm.__code_size + 1
+            line.nargs = line.nargs+1
+            if line.nargs == line.maxargs then
+               asm:add_line()
+               line.nargs = 0
+            end
+         end,
 
-			-----------------------------------------------------------------------------
-			-- asm:size()
-			-- Return the number of bytes
-			-----------------------------------------------------------------------------
-			size = function(asm)
-				return asm.__code_size
-			end,
+         -----------------------------------------------------------------------------
+         -- asm:size()
+         -- Return the number of bytes
+         -----------------------------------------------------------------------------
+         size = function(asm)
+            return asm.__code_size
+         end,
 
-			-----------------------------------------------------------------------------
-			-- asm:write()
-			-- Returns a string with all the lines of code, ready to print.
-			-----------------------------------------------------------------------------
-			write = function(asm)
-				local s = ""
-				for k,v in pairs(asm.__code) do
-					local list = {v.label, v.clabel, v.command, v.args, v.comment}
-					for k,v in pairs(list) do
-						if string.len(v) > 0 then
-							s = s..v
-							if k == 3 or k == 4 then s = s.."\t" end
-						end
-					end
+         -----------------------------------------------------------------------------
+         -- asm:write()
+         -- Returns a string with all the lines of code, ready to print.
+         -----------------------------------------------------------------------------
+         write = function(asm)
+            local s = ""
+            for k,v in pairs(asm.__code) do
+               local list = {v.label, v.clabel, v.command, v.args, v.comment}
+               for k,v in pairs(list) do
+                  if string.len(v) > 0 then
+                     s = s..v
+                     if k == 3 or k == 4 then s = s.."\t" end
+                  end
+               end
 
-					s = s .. "\n"
-				end
-				return s
-			end,
+               s = s .. "\n"
+            end
+            return s
+         end,
 
-			set_instrument = function(asm, n)
-				asm:place_byte(n + 64)
-			end,
-		} --asm = { stuff }
-		asm:add_line()
-		return asm
-	end --asm_assembly()
+         set_instrument = function(asm, n)
+            asm:place_byte(n + 64)
+         end,
+      } --asm = { stuff }
+      asm:add_line()
+      return asm
+   end --asm_assembly()
 
-	return {
-		asm = {
-			byte = asm_byte,
-			word = asm_word,
-			comment = asm_comment,
-			clabel = asm_clabel,
-			label = asm_label,
-			assembly = asm_assembly,
-		},
+   return {
+      asm = {
+         byte = asm_byte,
+         word = asm_word,
+         comment = asm_comment,
+         clabel = asm_clabel,
+         label = asm_label,
+         assembly = asm_assembly,
+      },
 
-		driver = {
-			-----------------------------------------------------------------------------
-			-- check_envelope(asm)
-			-- Validate this code before calling asm:write()
- 			-----------------------------------------------------------------------------
-			check_envelope = function(assembly)
-				if assembly:size() > 255 then
-					return "FamiTone allows envelopes up to 255 bytes."
-				end
-			end,
+      driver = {
+         -----------------------------------------------------------------------------
+         -- check_envelope(asm)
+         -- Validate this code before calling asm:write()
+          -----------------------------------------------------------------------------
+         check_envelope = function(assembly)
+            if assembly:size() > 255 then
+               return "FamiTone allows envelopes up to 255 bytes."
+            end
+         end,
 
-			-----------------------------------------------------------------------------
-			-- envelope_entry(num)
-			-- Given a numeric envelope entry (num), return a string formatted for this driver
-			-----------------------------------------------------------------------------
-			envelope_entry = function(num) return string.format("%x", (num+192)) end,
+         -----------------------------------------------------------------------------
+         -- envelope_entry(num)
+         -- Given a numeric envelope entry (num), return a string formatted for this driver
+         -----------------------------------------------------------------------------
+         envelope_entry = function(num) return string.format("%x", (num+192)) end,
 
-			-----------------------------------------------------------------------------
-			-- envelope_end()
-			-- Return this audio driver's indicator for the end of an envelope
-			-----------------------------------------------------------------------------
-			envelope_end = function() return string.format("%x", 127) end,
-		} --driver
-	}
+         -----------------------------------------------------------------------------
+         -- envelope_end()
+         -- Return this audio driver's indicator for the end of an envelope
+         -----------------------------------------------------------------------------
+         envelope_end = function() return string.format("%x", 127) end,
+      } --driver
+   }
 end
 
 
@@ -531,178 +531,182 @@ end
 -- A context has a configuration and a method to translate input to assembly code.
 -----------------------------------------------------------------------------
 local function create_context(config)
-	-- TODO: Validate config
+   function validate_config(config)
+      return config
+   end
 
-	return {
-		config = config,
-		input = {},
-		output = "",
-		outfile = io.stdout,
-		assemblies = {},
+   return {
+      config = validate_config(config),
+      validate_config = validate_config,
+      input = {},
+      output = "",
+      outfile = io.stdout,
+      assemblies = {},
 
-		-----------------------------------------------------------------------------
-		-- translate(context)
-		-- Reads from context.input and writes to context.output
-		-- Returns context,err
-		-----------------------------------------------------------------------------
-		translate = function(context)
-			-----------------------------------------------------------------------------
-			-- Validate and process the input as a Lua table with proper members
-			-----------------------------------------------------------------------------
-			local function validate_input(context)
-				-----------------------------------------------------------------------------
-				-- Capture commands from a channel
-				-----------------------------------------------------------------------------
-				local function capture_commands(context, channel)
-					local function docommand(context, command)
-						local asm = context.config.asm.assembly()
-						local notes = {c=0, d=2, e=4, f=5, g=7, a=9, b=11}
-						local n = 0
+      -----------------------------------------------------------------------------
+      -- translate(context)
+      -- Reads from context.input and writes to context.output
+      -- Returns context,err
+      -----------------------------------------------------------------------------
+      translate = function(context)
+         -----------------------------------------------------------------------------
+         -- Validate and process the input as a Lua table with proper members
+         -----------------------------------------------------------------------------
+         local function validate_input(context)
+            -----------------------------------------------------------------------------
+            -- Capture commands from a channel
+            -----------------------------------------------------------------------------
+            local function capture_commands(context, channel)
+               local function docommand(context, command, asm)
+                  local notes = {c=0, d=2, e=4, f=5, g=7, a=9, b=11}
+                  local n = 0
 
-						for note in string.gmatch(command, "[cdefgab]") do
-							n = 12 * channel.octave + notes[note]
-						end
+                  for note in string.gmatch(command, "[cdefgab]") do
+                     n = 12 * channel.octave + notes[note]
+                  end
 
-						for sharp in string.gmatch(command, "[cdfga]#") do
-							n = n+1
-						end
+                  for sharp in string.gmatch(command, "[cdfga]#") do
+                     n = n+1
+                  end
 
-						for sharperror in string.gmatch(command, "[be]#") do
-							error("There is no B# or E#.")
-						end
+                  for sharperror in string.gmatch(command, "[be]#") do
+                     error("There is no B# or E#.")
+                  end
 
-						asm:place_byte(n)
-						table.insert(context.assemblies, asm)
-					end
+                  asm:place_byte(n)
+                  return asm
+               end
 
-					local function getcommands(context, channel)
-						local asm = context.config.asm.assembly()
-						asm:set_instrument(channel.instrument)
-						table.insert(context.assemblies, asm)
+               local function getcommands(context, channel)
+                  local asm = context.config.asm.assembly()
+                  asm:set_instrument(channel.instrument)
+                  table.insert(context.assemblies, asm)
 
-						capture = "(@*>*<*[ivabcdefg]#*%d*>*<*%.*)"
-						for command in string.gmatch(channel.commands, capture) do
-							docommand(context, command, asm)
-						end
-					end
+                  capture = "(@*>*<*[ivabcdefg]#*%d*>*<*%.*)"
+                  asm = context.config.asm.assembly()
+                  for command in string.gmatch(channel.commands, capture) do
+                     asm = docommand(context, command, asm)
+                  end
+                  table.insert(context.assemblies, asm)
+               end
 
-					if context.input.audiotype == "music" then
-						for k,v in pairs(context.input.channels) do
-							getcommands(context, v)
-						end
-					elseif context.input.audiotype == "sound" then
-						getcommands(context, context.input.channels[1])
-					end
-				end -- capture_commands()
+               if context.input.audiotype == "music" then
+                  for k,v in pairs(context.input.channels) do
+                     getcommands(context, v)
+                  end
+               elseif context.input.audiotype == "sound" then
+                  getcommands(context, context.input.channels[1])
+               end
+            end -- capture_commands()
 
-				assert(type(context) == "table", "context should be a table.")
-				assert(type(context.input) == "table", "context.input should be a table.")
+            assert(type(context) == "table", "context should be a table.")
+            assert(type(context.input) == "table", "context.input should be a table.")
 
-				if context.input.title then
-					local err = "title should be a string."
-					assert(type(context.input.title) == "string", err)
+            if context.input.title then
+               local err = "title should be a string."
+               assert(type(context.input.title) == "string", err)
 
-					-- Add a label for this assembly module based on title
-					local asm = context.config.asm.assembly()
-					local s,_ = string.gsub(context.input.title, "%s+", "_")
-					-- TODO: Delete all punctuation from s
-					asm:add_label(s)
-					table.insert(context.assemblies, asm)
-				else
-					-- No title? Go with "fammlNNNNNNN"
-					local asm = context.config.asm.assembly()
-					math.randomseed(os.time())
-					asm:add_label("famml"..tostring(math.random(0,1000000)))
-					table.insert(context.assemblies, asm)
-				end
+               -- Add a label for this assembly module based on title
+               local asm = context.config.asm.assembly()
+               local s,_ = string.gsub(context.input.title, "%s+", "_")
+               -- TODO: Delete all punctuation from s
+               asm:add_label(s)
+               table.insert(context.assemblies, asm)
+            else
+               -- No title? Go with "fammlNNNNNNN"
+               local asm = context.config.asm.assembly()
+               math.randomseed(os.time())
+               asm:add_label("famml"..tostring(math.random(0,1000000)))
+               table.insert(context.assemblies, asm)
+            end
 
-				if context.input.composer then
-					local err = "composer should be a string."
-					assert(type(context.input.composer) == "string", err)
-				end
+            if context.input.composer then
+               local err = "composer should be a string."
+               assert(type(context.input.composer) == "string", err)
+            end
 
-				if context.input.programmer then
-					local err = "programmer should be a string."
-					assert(type(context.input.programmer) == "string", err)
-				end
+            if context.input.programmer then
+               local err = "programmer should be a string."
+               assert(type(context.input.programmer) == "string", err)
+            end
 
-				if context.input.audiotype then
-					local atype = context.input.audiotype
-					local err = "audiotype should be \"music\" or \"sound\"."
-					assert(atype == "music" or atype == "sound", err)
-				else
-					context.input.audiotype = "music"
-				end
+            if context.input.audiotype then
+               local atype = context.input.audiotype
+               local err = "audiotype should be \"music\" or \"sound\"."
+               assert(atype == "music" or atype == "sound", err)
+            else
+               context.input.audiotype = "music"
+            end
 
-				if context.input.channels then
-					local err = "channels should be a table."
-					assert(type(context.input.channels) == "table", err)
+            if context.input.channels then
+               local err = "channels should be a table."
+               assert(type(context.input.channels) == "table", err)
 
-					-----------------------------------------------------------------------------
-					-- validate_channel()
-					-----------------------------------------------------------------------------
-					local function validate_channel(key, channel)
-						local err = "channel '"..tostring(key).."' should be a table."
-						assert(type(channel) == "table", err)
+               -----------------------------------------------------------------------------
+               -- validate_channel()
+               -----------------------------------------------------------------------------
+               local function validate_channel(key, channel)
+                  local err = "channel '"..tostring(key).."' should be a table."
+                  assert(type(channel) == "table", err)
 
-						if channel.octave then
-							local err = "octave should be a number."
-							assert(type(channel.octave) == "number", err)
-							-- TODO: Shouldn't octave be validated by config?
-							local err = "octave should be >= 0."
-							assert(channel.octave >= 0, err)
-						else
-							channel.octave = 4
-						end
+                  if channel.octave then
+                     local err = "octave should be a number."
+                     assert(type(channel.octave) == "number", err)
+                     -- TODO: Shouldn't octave be validated by config?
+                     local err = "octave should be >= 0."
+                     assert(channel.octave >= 0, err)
+                  else
+                     channel.octave = 4
+                  end
 
-						if channel.notelen then
-							local err = "notelen should be a number."
-							assert(type(channel.notelen) == "number", err)
-							-- TODO: Shouldn't notelen be validated by config?
-						else
-							channel.notelen = 4
-						end
+                  if channel.notelen then
+                     local err = "notelen should be a number."
+                     assert(type(channel.notelen) == "number", err)
+                     -- TODO: Shouldn't notelen be validated by config?
+                  else
+                     channel.notelen = 4
+                  end
 
-						if channel.instrument then
-							local err = "instrument should be a number."
-							assert(type(channel.instrument) == "number", err)
-						else
-							channel.instrument = 1
-						end
+                  if channel.instrument then
+                     local err = "instrument should be a number."
+                     assert(type(channel.instrument) == "number", err)
+                  else
+                     channel.instrument = 1
+                  end
 
-						if channel.commands then
-							local err = "commands should be a string."
-							assert(type(channel.commands) == "string", err)
-							channel.commands = string.lower(channel.commands)
-							capture_commands(context, channel)
-						end
-					end --validate_channel()
+                  if channel.commands then
+                     local err = "commands should be a string."
+                     assert(type(channel.commands) == "string", err)
+                     channel.commands = string.lower(channel.commands)
+                     capture_commands(context, channel)
+                  end
+               end --validate_channel()
 
-					for k,v in pairs(context.input.channels) do
-						validate_channel(k,v)
-					end
-				end
+               for k,v in pairs(context.input.channels) do
+                  validate_channel(k,v)
+               end
+            end
 
-				return context
-			end -- validate_input()
+            return context
+         end -- validate_input()
 
-			-----------------------------------------------------------------------------
-			-- Write assembly to output string
-			-----------------------------------------------------------------------------
-			local function output_assembly(context)
-				for k,asm in pairs(context.assemblies) do
-					context.output = context.output..asm:write()
-				end
+         -----------------------------------------------------------------------------
+         -- Write assembly to output string
+         -----------------------------------------------------------------------------
+         local function output_assembly(context)
+            for k,asm in pairs(context.assemblies) do
+               context.output = context.output..asm:write()
+            end
 
-				return context
-			end --output_assembly()
+            return context
+         end --output_assembly()
 
-			validate_input(context)
-			output_assembly(context)
+         validate_input(context)
+         output_assembly(context)
 
-			return context
-		end, --translate()
-	}
+         return context
+      end, --translate()
+   }
 end --create_context()
 
 
@@ -712,11 +716,11 @@ end --create_context()
 -- Just show some friendly information about the program. :)
 -----------------------------------------------------------------------------
 local function help()
-	print("Famml! - Convert MML to assembly\n")
-	print("Usage: famml input.mml -o output")
-	print("   -h  See this help screen")
-	print("   -o  Redirect output to a file, as opposed to standard output")
-	print("   -p  Accept input from a pipe")
+   print("Famml! - Convert MML to assembly\n")
+   print("Usage: famml input.mml -o output")
+   print("   -h  See this help screen")
+   print("   -o  Redirect output to a file, as opposed to standard output")
+   print("   -p  Accept input from a pipe")
 end
 
 
@@ -725,63 +729,67 @@ end
 -- cli() handles the command-line interface
 -----------------------------------------------------------------------------
 local function cli()
-	-----------------------------------------------------------------------------
-	-- checkparams(context)
-	-- checkparams validates the parameters in arg
-	-----------------------------------------------------------------------------
-	function checkparams(context)
-		for i,v in pairs(arg) do
-			if v == "-h" then help() return end
-			if v == "-o" then
-				if i == #arg then
-					return context, "Output file expected after -o\n"
-				elseif v == arg[1] then
-					return context, "Cannot read from and write to the same file.\n"
-				end
-			end
-		end
+   -----------------------------------------------------------------------------
+   -- checkparams(context)
+   -- checkparams validates the parameters in arg
+   -----------------------------------------------------------------------------
+   function checkparams(context)
+      for i,v in pairs(arg) do
+         if v == "-h" then help() return end
+         if v == "-o" then
+            if i == #arg then
+               return context, "Output file expected after -o\n"
+            elseif v == arg[1] then
+               return context, "Cannot read from and write to the same file.\n"
+            end
+         end
+      end
 
-		return context
-	end
+      return context
+   end
 
-	-----------------------------------------------------------------------------
-	-- Process the parameters, including pipe and interactive mode
-	-----------------------------------------------------------------------------
-	function readinput(context)
-		for i,v in pairs(arg) do
-			if v == "-p" then
-				-- Pipe mode!
-				context.input = load(io.read("*all"))
-				context.input = context.input()
-			elseif v == "-o" then
-				if arg[i+1] then
-					context.outfile = io.open(arg[i+1], "w")
-					assert(context.outfile, "Could not open output file '"..arg[i+1].."'")
-				end
-			else
-				-- All other options are checked. If this far, then arg[1] is input file.
-				if i == 1 then
-					local f = io.open(arg[1])
-					assert(f,"Could not open input file '"..arg[1].."'. Expected input file as first argument.")
-					context.input = load(f:read("*all"))
-					f:close()
-					context.input = context.input()
-				end
-			end
-		end
+   -----------------------------------------------------------------------------
+   -- Process the parameters, including pipe and interactive mode
+   -----------------------------------------------------------------------------
+   function readinput(context)
+      for i,v in pairs(arg) do
+         if v == "-p" then
+            -- Pipe mode!
+            context.input = load(io.read("*all"))
+            context.input = context.input()
+         elseif v == "-o" then
+            if arg[i+1] then
+               context.outfile = io.open(arg[i+1], "w")
+               assert(context.outfile, "Could not open output file '"..arg[i+1].."'")
+            end
+         elseif v == "-c" then
+            if arg[i+1] then
+               context.config = context.validate_config(dofile(arg[i+1]))
+            end
+         else
+            -- All other options are checked. If this far, then arg[1] is input file.
+            if i == 1 then
+               local f = io.open(arg[1])
+               assert(f,"Could not open input file '"..arg[1].."'. Expected input file as first argument.")
+               context.input = load(f:read("*all"))
+               f:close()
+               context.input = context.input()
+            end
+         end
+      end
 
-		return context
-	end
+      return context
+   end
 
-	-----------------------------------------------------------------------------
-	-- Now to the meat of the function
-	-----------------------------------------------------------------------------
-	context = create_context(config_ca65_famitone())
-	checkparams(context)
-	readinput(context)
-	context:translate()
-	context.outfile:write(context.output)
-	if not context.outfile == io.stdout then context.outfile:close() end
+   -----------------------------------------------------------------------------
+   -- Now to the meat of the function
+   -----------------------------------------------------------------------------
+   context = create_context(config_ca65_famitone())
+   checkparams(context)
+   readinput(context)
+   context:translate()
+   context.outfile:write(context.output)
+   if not context.outfile == io.stdout then context.outfile:close() end
 end
 
 
@@ -791,12 +799,13 @@ end
 -- If it is run from dofile, it should return an interface to famml
 -----------------------------------------------------------------------------
 if arg == nil then
-	return {
-		config_ca65_famitone=config_ca65_famitone,
-		create_context=create_context,
-	}
+   return {
+      config_ca65_famitone=config_ca65_famitone,
+      create_context=create_context,
+   }
 elseif #arg <= 0 then
-	return help()
+   return help()
 else
-	return cli()
+   return cli()
 end
+
