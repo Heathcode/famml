@@ -8,6 +8,6 @@ return {
 			octave = 4,
 			notelen = 4,
 			commands = "A# FFcd", --should be case insensitive
-		}
+		},
 	},
 }

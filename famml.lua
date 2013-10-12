@@ -560,17 +560,31 @@ local function create_context(config)
                local function docommand(context, command, asm)
                   local notes = {c=0, d=2, e=4, f=5, g=7, a=9, b=11}
                   local n = 0
+                  local notelen = channel.notelen
 
-                  for note in string.gmatch(command, "[cdefgab]") do
+                  for note in string.gmatch(command, "<*>*[cdefgab]#*%d*") do
+                     for octup in string.gmatch(note, ">") do
+                        channel.octave = channel.octave+1
+                     end
+
+                     for octdown in string.gmatch(note, "<") do
+                        channel.octave = channel.octave-1
+                     end
+
+                     for sharp in string.gmatch(command, "[cdfga]#") do
+                        n = n+1
+                     end
+
+                     for sharperror in string.gmatch(command, "[be]#") do
+                        error("There is no B# or E#.")
+                     end
+
+                     for len in string.gmatch(note, "[cdefgab](%d*)") do
+                        notelen = tonumber(len)
+                     end
+
+                     note,_ = string.gsub(note, "[<>#%d]", "") -- strip out the extra characters
                      n = 12 * channel.octave + notes[note]
-                  end
-
-                  for sharp in string.gmatch(command, "[cdfga]#") do
-                     n = n+1
-                  end
-
-                  for sharperror in string.gmatch(command, "[be]#") do
-                     error("There is no B# or E#.")
                   end
 
                   asm:place_byte(n)
@@ -582,7 +596,7 @@ local function create_context(config)
                   asm:set_instrument(channel.instrument)
                   table.insert(context.assemblies, asm)
 
-                  capture = "(@*>*<*[ivabcdefg]#*%d*>*<*%.*)"
+                  capture = "(@*>*<*[ivabcdefg]#*%d*%.*)"
                   asm = context.config.asm.assembly()
                   for command in string.gmatch(channel.commands, capture) do
                      asm = docommand(context, command, asm)
@@ -590,13 +604,7 @@ local function create_context(config)
                   table.insert(context.assemblies, asm)
                end
 
-               if context.input.audiotype == "music" then
-                  for k,v in pairs(context.input.channels) do
-                     getcommands(context, v)
-                  end
-               elseif context.input.audiotype == "sound" then
-                  getcommands(context, context.input.channels[1])
-               end
+               getcommands(context, channel)
             end -- capture_commands()
 
             assert(type(context) == "table", "context should be a table.")
@@ -682,8 +690,12 @@ local function create_context(config)
                   end
                end --validate_channel()
 
-               for k,v in pairs(context.input.channels) do
-                  validate_channel(k,v)
+               if context.input.audiotype == "music" then
+                  for k,v in pairs(context.input.channels) do
+                     validate_channel(k,v)
+                  end
+               elseif context.input.audiotype == "sound" then
+                  validate_channel(1, context.input.channels[1])
                end
             end
 
