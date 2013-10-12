@@ -718,9 +718,10 @@ end --create_context()
 local function help()
    print("Create chiptune music for 8-bit systems with Lua.\n")
    print("Usage: famml input.lua -c config.lua -o output")
+   print("Pipe usage: cat input.lua | famml -p -c config.lua -o output")
    print("   -c  Load a configuration script")
    print("   -h  See this help screen")
-   print("   -o  Redirect output to a file, as opposed to standard output")
+   print("   -o  Redirect output to a file (default: stdout)")
    print("   -p  Accept input from a pipe")
 end
 
