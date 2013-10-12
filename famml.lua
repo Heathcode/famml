@@ -755,7 +755,9 @@ local function cli()
    -----------------------------------------------------------------------------
    function readinput(context)
       for i,v in pairs(arg) do
-         if v == "-p" then
+         if v == "-h" then
+            return nil
+         elseif v == "-p" then
             -- Pipe mode!
             context.input = load(io.read("*all"))
             context.input = context.input()
@@ -788,7 +790,7 @@ local function cli()
    -----------------------------------------------------------------------------
    context = create_context(config_ca65_famitone())
    checkparams(context)
-   readinput(context)
+   if not readinput(context) then return end
    context:translate()
    context.outfile:write(context.output)
    if not context.outfile == io.stdout then context.outfile:close() end
