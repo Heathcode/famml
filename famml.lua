@@ -520,6 +520,8 @@ local function config_ca65_famitone()
          -- Return this audio driver's indicator for the end of an envelope
          -----------------------------------------------------------------------------
          envelope_end = function() return string.format("%x", 127) end,
+
+         rest = 63,
       } --driver
    }
 end
@@ -562,7 +564,7 @@ local function create_context(config)
                   local n = 0
                   local notelen = channel.notelen
 
-                  for note in string.gmatch(command, "<*>*[cdefgab]#*%d*") do
+                  for note in string.gmatch(command, "<*>*[cdefgab%-]#*%.*%d*") do
                      for octup in string.gmatch(note, ">") do
                         channel.octave = channel.octave+1
                      end
@@ -583,8 +585,16 @@ local function create_context(config)
                         notelen = tonumber(len)
                      end
 
-                     note,_ = string.gsub(note, "[<>#%d]", "") -- strip out the extra characters
+                     for rest in string.gmatch(note, "%-") do
+                        goto onrest
+                     end
+
+                     note,_ = string.gsub(note, "[<>#%.%d]", "") -- strip out the extra characters
                      n = 12 * channel.octave + notes[note]
+                     break
+
+                     ::onrest::
+                     n = context.config.driver.rest
                   end
 
                   asm:place_byte(n)
@@ -596,7 +606,7 @@ local function create_context(config)
                   asm:set_instrument(channel.instrument)
                   table.insert(context.assemblies, asm)
 
-                  capture = "(@*>*<*[ivabcdefg]#*%d*%.*)"
+                  capture = "(@*>*<*[ivabcdefg%-]#*%.*%d*)"
                   asm = context.config.asm.assembly()
                   for command in string.gmatch(channel.commands, capture) do
                      asm = docommand(context, command, asm)
@@ -752,9 +762,9 @@ local function cli()
          if v == "-h" then help() return end
          if v == "-o" then
             if i == #arg then
-               return context, "Output file expected after -o\n"
+               error("Output file expected after -o")
             elseif v == arg[1] then
-               return context, "Cannot read from and write to the same file.\n"
+               error("Cannot read from and write to the same file.")
             end
          end
       end
@@ -767,9 +777,7 @@ local function cli()
    -----------------------------------------------------------------------------
    function readinput(context)
       for i,v in pairs(arg) do
-         if v == "-h" then
-            return nil
-         elseif v == "-p" then
+         if v == "-p" then
             -- Pipe mode!
             context.input = load(io.read("*all"))
             context.input = context.input()
@@ -801,8 +809,8 @@ local function cli()
    -- Now to the meat of the function
    -----------------------------------------------------------------------------
    context = create_context(config_ca65_famitone())
-   checkparams(context)
-   if not readinput(context) then return end
+   if not checkparams(context) then return end
+   readinput(context)
    context:translate()
    context.outfile:write(context.output)
    if not context.outfile == io.stdout then context.outfile:close() end
